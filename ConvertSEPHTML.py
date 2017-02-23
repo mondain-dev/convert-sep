@@ -47,7 +47,7 @@ def ConvertHTMLElement(html_element, sidenote=False):
     return paragraph_HTMLEntity2TeX(html_element)
   if tag == 'blockquote':
     if sidenote:
-      return ''.join(['``', paragraph_HTMLEntity2TeX(html_element), '\'\''])
+      return ''.join(['``', paragraph_HTMLEntity2TeX(html_element), '\'\'\\\\\\\\'])
     else:
       return blockquote_HTMLEntity2TeX(html_element)
   if tag == 'ul':
