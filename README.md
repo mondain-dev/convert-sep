@@ -1,5 +1,5 @@
 # ConvertSEP
-To generate [`tufte-book`](https://tufte-latex.github.io/tufte-latex/) style document for SEP entries.
+To generate [tufte-book](https://tufte-latex.github.io/tufte-latex/) style document for SEP entries.
 ## Dependencies
 * XeLaTeX 
 * [pandoc](http://pandoc.org/) and its python wrapper pypandoc
