@@ -36,9 +36,15 @@ def ul_HTMLEntity2TeX(html_entity):
   return ''.join(['\\begin{itemize}\n', ''.join(li_list_TeX), '\n\\end{itemize}'])
 
 def ol_HTMLEntity2TeX(html_entity):
+  counter=''
+  type=''
+  if html_entity.has_attr('start'):
+    counter = '\\setcounter{enumi}{' + str(int(html_entity['start']) - 1) + '}\n'
+  if html_entity.has_attr('type'):
+    type = ''.join(['[', html_entity['type'],']'])
   li_list = [''.join([unicode(e) for e in l.contents]) for l in html_entity.find_all('li')]
   li_list_TeX = [ ''.join(['\\item ', pypandoc.convert(l, 'tex', format='html')]) for l in li_list ]
-  return ''.join(['\\begin{enumerate}\n', ''.join(li_list_TeX), '\n\\end{enumerate}'])
+  return ''.join(['\\begin{enumerate}', type,'\n', counter, ''.join(li_list_TeX), '\n\\end{enumerate}'])
 
 def ConvertHTMLElement(html_element, sidenote=False):
   tag = html_element.name
@@ -68,6 +74,7 @@ def OutputTeX(title, author, preamble='', main_text='', bibliography='', copyrig
 \\usepackage{soul}\n\
 \\usepackage{csquotes}\n\
 \\usepackage{graphicx}\n\
+\\usepackage{enumerate}\n\
 \n\
 \\usepackage{ifxetex}\n\
 \\ifxetex\n\
