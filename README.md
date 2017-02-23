@@ -16,7 +16,7 @@ or
 ```
 python ConvertSEPHTML.py  https://plato.stanford.edu/entries/comte/
 ```
-which will save the tex output to `output.tex`. XeLaTeX can then be used to compile the output:
+which will save the tex output to `output.tex`. Manual adjustment may be required, e.g. <*offset*> argument of `\sidenote`. XeLaTeX can then be used to compile the output:
 ```
 xelatex comte.tex
 xelatex comte.tex # second run to generate the TOC
