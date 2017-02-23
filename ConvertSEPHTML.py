@@ -10,9 +10,10 @@ def heading_HTMLEntity2TeX(html_entity):
   heading_html = ''
   if html_entity.contents[0].name == 'a':
     heading_html = ''.join([unicode(e) for e in html_entity.contents[0].contents])
-    heading_html = re.sub(r'^[0-9\.]*', '', heading_html )
+    heading_html = re.sub(r'^[0-9\. ]*', '', heading_html )
   else:
     heading_html = ''.join([unicode(e) for e in html_entity.contents])
+    heading_html = re.sub(r'^[0-9\. ]*', '', heading_html )
   heading_TeX  = re.sub(r'\n', '', pypandoc.convert(heading_html, 'tex', format='html'))
   if(html_entity.name == 'h2'):
     heading_TeX = ''.join(['\\chapter{', heading_TeX, '}'])
