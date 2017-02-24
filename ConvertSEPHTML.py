@@ -64,12 +64,14 @@ def ConvertHTMLElement(html_element, sidenote=False):
 
 def ConvertHTML(entry_html_entity):
   entry_TeX = ''
-  for i in entry_html_entity.children:
-    if i.name:
-      entry_TeX = '\n'.join([entry_TeX, ConvertHTMLElement(i)])
+  if entry_html_entity:
+    if entry_html_entity.children:
+      for i in entry_html_entity.children:
+        if i.name:
+          entry_TeX = '\n'.join([entry_TeX, ConvertHTMLElement(i)])
   return entry_TeX
 
-def OutputTeX(title, author, preamble='', main_text='', bibliography='', copyright='', url=''):
+def OutputTeX(title, author, preamble='', main_text='', bibliography='', acknowledgments='', pubhistory='', copyright='', url=''):
   frontmatter_template=Template('\\documentclass[twoside]{tufte-book}\n\
 \\usepackage{soul}\n\
 \\usepackage{csquotes}\n\
@@ -110,10 +112,12 @@ $copyright\n\
 \n\
 \par This is an article from \emph{Stanford Encyclopedia of Philosopy}, ed.~Edward N.~Zalta. URL: \\url{$url}\n\
 \n\
+\par $pubhistory\n\
+\n\
 % \par The script used to generate this file can be found at \\url{https://github.com/mondain-dev/ConvertSEP/}\n\
 \\cleardoublepage\n')
-  string_TeX = frontmatter_template.substitute(title=title, author=author, copyright=copyright, url=url)
-  string_TeX = '\n'.join([string_TeX, preamble, '\n \\tableofcontents\n\n\\setcounter{secnumdepth}{2}',  main_text, bibliography, '\\end{document}'])
+  string_TeX = frontmatter_template.substitute(title=title, author=author, copyright=copyright, pubhistory=pubhistory, url=url)
+  string_TeX = '\n'.join([string_TeX, preamble, '\n \\tableofcontents\n\n\\setcounter{secnumdepth}{2}',  main_text, bibliography, acknowledgments, '\\end{document}'])
   return string_TeX
 
 def ProcessNotes(tex_src, base_url):
@@ -179,15 +183,30 @@ def main():
   author_info = filter(None, [s.strip() for s in soup.select('#article-copyright')[0].text.split('by\n')[1].split('\n')])
   author = author_info[0]
   copyright_info = ' '.join(soup.select('#article-copyright')[0].text.split())
+  pubhistory_info = soup.select('#pubinfo')[0].text
   preamble = soup.select('#aueditable #preamble')[0]
   main_text = soup.select('#aueditable #main-text')[0]
-  bibliography = soup.select('#aueditable #bibliography')[0]
+  bibliography = None
+  if soup.select('#aueditable #bibliography'):
+    bibliography = soup.select('#aueditable #bibliography')[0]
+  acknowledgments = None
+  if soup.select('#aueditable #acknowledgments'):
+    acknowledgments = soup.select('#aueditable #acknowledgments')[0]
   
-  preamble_TeX     = ConvertHTML(preamble)
-  main_text_TeX    = ConvertHTML(main_text)
-  bibliography_TeX = ConvertHTML(bibliography)
+  preamble_TeX        = ConvertHTML(preamble)
+  main_text_TeX       = ConvertHTML(main_text)
+  bibliography_TeX    = ConvertHTML(bibliography)
+  acknowledgments_TeX = ''
+  if acknowledgments:
+    if acknowledgments.children:
+      for i in acknowledgments.children:
+        if i.name:
+          if i.name == "h3" and i.text == "Acknowledgments":
+            acknowledgments_TeX = '\n'.join([acknowledgments_TeX, '\\setcounter{secnumdepth}{-1}\n\\chapter{Acknowledgments}'])
+          else:
+            acknowledgments_TeX = '\n'.join([acknowledgments_TeX, ConvertHTMLElement(i)])
   
-  full_TeX   = OutputTeX(title, author, preamble_TeX, main_text_TeX, bibliography_TeX, copyright_info,url)
+  full_TeX   = OutputTeX(title, author, preamble_TeX, main_text_TeX, bibliography_TeX, acknowledgments_TeX, pubhistory_info, copyright_info, url)
   full_TeX   = ProcessNotes(full_TeX, url)
   output_file = open(output, "w")
   output_file.write(full_TeX.encode('utf8'))
