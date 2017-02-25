@@ -3,6 +3,7 @@ To generate [tufte-book](https://tufte-latex.github.io/tufte-latex/) style docum
 ## Dependencies
 * XeLaTeX 
 * [pandoc](http://pandoc.org/) and its python wrapper pypandoc
+* [Inkscape](https://inkscape.org/): if `.svg` images are used in the entry
 
 ## Usage
 ```
