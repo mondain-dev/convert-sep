@@ -260,7 +260,7 @@ def main():
     if re.match('.*.svg', img):
       img_local_pdf = re.sub(r'(.*).svg', r'\1.pdf', img_local)
       img_pdf = re.sub(r'(.*).svg', r'\1.pdf', img)
-      call(["/Applications/Inkscape.app/Contents/Resources/bin/inkscape", '-D', '-z', ''.join(['--file=', img_local]), ''.join(['--export-pdf=', img_local_pdf])])
+      call(["inkscape", '-D', '-z', ''.join(['--file=', img_local]), ''.join(['--export-pdf=', img_local_pdf])])
       full_TeX = re.sub(''.join([r'\\includegraphics{', img, '}']), ''.join([r'\\includegraphics{', img_pdf, '}']), full_TeX, flags=re.MULTILINE)
   
   output_file = open(output, "w")
