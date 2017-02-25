@@ -80,6 +80,9 @@ def ConvertHTMLElement(html_element):
     return ul_HTMLEntity2TeX(html_element)
   if tag == 'ol':
     return ol_HTMLEntity2TeX(html_element)
+  if tag == 'table':
+    return '\\textbf{TODO}: \\texttt{<table>} tag not yet supported.'
+  return ''
 
 def ConvertHTML(entry_html_entity):
   entry_TeX = ''
