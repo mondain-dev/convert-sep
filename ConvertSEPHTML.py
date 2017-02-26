@@ -15,15 +15,40 @@ def ConvertMathJaX2TeX(mathjax_str):
   latex_str = re.sub(r'\\end{align(\*?)}', r'\\end{aligned}', latex_str)
   return latex_str
 
+def HTMLContents2TeX(contents, TableEnv=False):
+  latex_str = ''
+  list_contents = []
+  if contents:
+    e_html = ''
+    for e in contents:
+      if isinstance(e, (str, unicode)):
+        e_html += unicode(e)
+      elif hasattr(e, 'name'):
+        if e.name in ['h2', 'h3', 'h4', 'p', 'blockquote', 'ul', 'ol', 'div', 'table']:
+          if e_html:
+            if e_html.strip():
+              latex_str += pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
+            else:
+              latex_str += '\n'
+            e_html     = ''
+          latex_str   += ConvertHTMLElement(e, TableEnv=TableEnv)
+        else:
+          e_html += unicode(e)
+      else:
+        e_html += unicode(e)
+    if e_html:
+      latex_str += pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
+  return latex_str
+
 def heading_HTMLEntity2TeX(html_entity):
-  heading_html = ''
+  heading_contents = None
   if html_entity.contents[0].name == 'a':
-    heading_html = ''.join([unicode(e) for e in html_entity.contents[0].contents])
-    heading_html = re.sub(r'^[0-9\. ]*', '', heading_html )
+    heading_contents = html_entity.contents[0].contents
   else:
-    heading_html = ''.join([unicode(e) for e in html_entity.contents])
-    heading_html = re.sub(r'^[0-9\. ]*', '', heading_html )
-  heading_TeX  = re.sub(r'\n', '', pypandoc.convert(heading_html, 'tex', format='html'))
+    heading_contents = html_entity.contents
+  heading_TeX = HTMLContents2TeX(heading_contents)
+  heading_TeX = re.sub(r'\n', '', heading_TeX)
+  heading_TeX = re.sub(r'^[0-9\. ]*', '', heading_TeX )
   if(html_entity.name == 'h2'):
     heading_TeX = ''.join(['\\chapter{', heading_TeX, '}'])
   if(html_entity.name == 'h3'):
@@ -33,7 +58,7 @@ def heading_HTMLEntity2TeX(html_entity):
   return heading_TeX
 
 def paragraph_HTMLEntity2TeX(html_entity):
-  paragraph_TeX = pypandoc.convert(unicode(html_entity), 'tex', format='html+tex_math_single_backslash')
+  paragraph_TeX = HTMLContents2TeX(html_entity.contents)
   if re.search(r'\\textbackslash{}\(\\textbackslash\{\}ref\\{(.*)\\}\\textbackslash{}\)', paragraph_TeX):
     paragraph_TeX = re.sub(r'\\textbackslash{}\(\\textbackslash\{\}ref\\{(.*)\\}\\textbackslash{}\)', r'\\ref{\1}', paragraph_TeX)
   if re.search(r'\(\\textbackslash{}\((.*)\\textbackslash{}\)\)', paragraph_TeX):
@@ -41,12 +66,12 @@ def paragraph_HTMLEntity2TeX(html_entity):
   return paragraph_TeX
 
 def blockquote_HTMLEntity2TeX(html_entity):
-  return paragraph_HTMLEntity2TeX(html_entity)
+  return '\n'.join(['\\begin{quote}', HTMLContents2TeX(html_entity.contents), '\\end{quote}'])
 
 def ul_HTMLEntity2TeX(html_entity):
-  li_list = [''.join([unicode(e) for e in l.contents]) for l in html_entity.find_all('li')]
-  li_list_TeX = [ ''.join(['\\item ', pypandoc.convert(l, 'tex', format='html+tex_math_single_backslash').strip()]) for l in li_list ]
-  return ''.join(['\\begin{itemize}\n', ''.join(li_list_TeX), '\n\\end{itemize}'])
+  li_contents_list = [l.contents for l in html_entity.find_all('li')]
+  li_TeX_list      = [ ''.join(['\\item ', HTMLContents2TeX(l).strip()]) for l in li_contents_list ]
+  return ''.join(['\\begin{itemize}\n', '\n'.join(li_TeX_list), '\n\\end{itemize}'])
 
 def ol_HTMLEntity2TeX(html_entity):
   counter=''
@@ -55,11 +80,65 @@ def ol_HTMLEntity2TeX(html_entity):
     counter = '\\setcounter{enumi}{' + str(int(html_entity['start']) - 1) + '}\n'
   if html_entity.has_attr('type'):
     type = ''.join(['[', html_entity['type'],']'])
-  li_list = [''.join([unicode(e) for e in l.contents]) for l in html_entity.find_all('li')]
-  li_list_TeX = [ ''.join(['\\item ', pypandoc.convert(l, 'tex', format='html+tex_math_single_backslash').strip()]) for l in li_list ]
-  return ''.join(['\\begin{enumerate}', type,'\n', counter, ''.join(li_list_TeX), '\n\\end{enumerate}'])
+  li_contents_list = [l.contents for l in html_entity.find_all('li')]
+  li_TeX_list      = [ ''.join(['\\item ', HTMLContents2TeX(l).strip()]) for l in li_contents_list ]
+  return ''.join(['\\begin{enumerate}', type,'\n', counter, '\n'.join(li_TeX_list), '\n\\end{enumerate}'])
 
-def ConvertHTMLElement(html_element):
+def table_HTMLEntity2TeX(table_entity, TableEnv = False):
+  table_matrix = []
+  max_width = 0
+  for r in table_entity.children:
+    if r.name == 'tr':
+      row_vector = []
+      for d in r.children:
+        if d.name == 'td':
+          colspan = 1
+          rowspan = 1
+          nowrap  = 0
+          valign  = ''
+          align   = ''
+          if d.has_attr('colspan'):
+            colspan = int(d['colspan'])
+          if d.has_attr('rowspan'):
+            rowspan = int(d['rowspan'])
+          if d.has_attr('nowrap'):
+            if d['nowrap'] == 'nowrap':
+              nowrap = 1
+          if d.has_attr('valign'):
+            if d['valign'] == 'middle':
+              valign = 'm'
+            if d['valign'] == 'bottom':
+              valign = 'b'   
+          td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
+          row_vector.append((td_latex, colspan, rowspan, nowrap, valign, align))
+      row_width = sum([d_element[1] for d_element in row_vector])
+      if row_width > max_width:
+        max_width = row_width
+      table_matrix.append(row_vector)
+  table_latex = '{\\begin{tabularx}{' 
+  if TableEnv:
+    table_latex += '\\cellwidth'
+  else:
+    table_latex += '\\textwidth'
+  table_latex += ('}{' + 'X'*max_width + '}')
+  for r in table_matrix :
+    row_latex = ''
+    for d in r:
+      cell_latex = ''
+      if d[1] > 1 or d[3] :
+        cell_latex = '\\multicolumn{'+str(d[1])+'}{'+'c'+'}{\\nowrapcell{' + d[0] + '}}'
+      else:
+        cell_latex = '\\Xcell{' + d[0] + '}'
+      if row_latex == '':
+        row_latex = cell_latex
+      else:
+        row_latex += ' & ' + cell_latex
+    table_latex += row_latex
+    table_latex += '\\\\\n'
+  table_latex += '\\end{tabularx}}'
+  return table_latex 
+
+def ConvertHTMLElement(html_element, TableEnv=False):
   tag = html_element.name
   if tag == 'h2' or tag == 'h3' or tag == 'h4':
     return heading_HTMLEntity2TeX(html_element)
@@ -81,7 +160,7 @@ def ConvertHTMLElement(html_element):
   if tag == 'ol':
     return ol_HTMLEntity2TeX(html_element)
   if tag == 'table':
-    return '\\textbf{TODO}: \\texttt{<table>} tag not yet supported.'
+    return table_HTMLEntity2TeX(html_element, TableEnv)
   return ''
 
 def ConvertHTML(entry_html_entity):
@@ -94,8 +173,10 @@ def ConvertHTML(entry_html_entity):
           if i.name == 'p':
             entry_TeX = entry_TeX + '\n'
         elif re.match(r'\\\[.*\\\]', str(i).strip(), flags=re.MULTILINE|re.DOTALL):
-          entry_TeX = ''.join([entry_TeX, str(i).strip()])
+          entry_TeX = ''.join([re.sub('\n\n\Z', '\n', entry_TeX, flags=re.MULTILINE), str(i).strip()])
   return entry_TeX
+
+
 
 def OutputTeX(title, author, preamble='', main_text='', bibliography='', acknowledgments='', macros='', pubhistory='', copyright='', url=''):
   frontmatter_template=Template('\\documentclass[twoside]{tufte-book}\n\
@@ -105,6 +186,7 @@ def OutputTeX(title, author, preamble='', main_text='', bibliography='', acknowl
 \\usepackage{amsmath}\n\
 \\usepackage{amssymb}\n\
 \\usepackage{changepage}\n\
+\\usepackage{tabularx}\n\
 \n\
 \\usepackage{ifxetex}\n\
 \\ifxetex\n\
@@ -127,6 +209,15 @@ def OutputTeX(title, author, preamble='', main_text='', bibliography='', acknowl
 }\n\
 \\makeatother\n\
 \n\
+\\makeatletter\n\
+\\newcommand\\cellwidth{\\TX@col@width}\n\
+\\makeatother\n\
+\n\
+\\newcommand{\\nowrapcell}[2][c]{%\n\
+ \\begin{tabular}[#1]{@{}c@{}}#2\\end{tabular}}\n\
+\\newcommand{\\Xcell}[1]{%\n\
+ \\begin{tabularx}{\\cellwidth}{X}#1\\end{tabularx}}\n\
+\n\
 $macros\
 \n\
 \\title{$title}\n\
@@ -145,7 +236,10 @@ $copyright\n\
 \par $pubhistory\n\
 \n\
 % \par The script used to generate this file can be found at \\url{https://github.com/mondain-dev/ConvertSEP/}\n\
-\\cleardoublepage\n')
+\\cleardoublepage\n\
+\\newlength\\tempparskip\n\
+\\newlength\\tempparindent\n\
+')
   string_TeX = frontmatter_template.substitute(title=title, author=author, copyright=copyright, pubhistory=pubhistory, url=url, macros=macros)
   string_TeX = '\n'.join([string_TeX, preamble, '\n\\tableofcontents\n\n\\setcounter{secnumdepth}{2}',  main_text, bibliography, acknowledgments, '\\end{document}'])
   return string_TeX
@@ -188,7 +282,7 @@ def ProcessNotes(tex_src, base_url):
     note_text = ''
     if len(n) > 5:
       note_text = '\n'.join([ConvertHTMLElement(e) for e in n[5]])
-      note_text = ''.join(['\\sidenote[][]{', note_text, '}'])
+      note_text = ''.join(['\\setlength{\\tempparskip}{\\parskip}\\setlength{\\tempparindent}{\\parindent}\\sidenote[][]{', note_text, '}\\setlength{\\parindent}{\\tempparindent}\\setlength{\\parskip}{\\tempparskip}'])
     note_superscript = n[0]
     tex_src = tex_src.replace(note_superscript, note_text)
   
