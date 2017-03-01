@@ -1,0 +1,59 @@
+\documentclass[twoside]{tufte-book}
+\usepackage{csquotes}
+\usepackage{graphicx}
+\usepackage{enumerate}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{changepage}
+\usepackage{tabularx}
+\usepackage{longtable}
+
+\usepackage{ifxetex}
+\ifxetex
+  \newcommand{\textls}[2][5]{%
+    \begingroup\addfontfeatures{LetterSpace=#1}#2\endgroup
+  }
+  \renewcommand{\allcapsspacing}[1]{\textls[15]{#1}}
+  \renewcommand{\smallcapsspacing}[1]{\textls[10]{#1}}
+  \renewcommand{\allcaps}[1]{\textls[15]{\MakeTextUppercase{#1}}}
+  \renewcommand{\smallcaps}[1]{\smallcapsspacing{\scshape\MakeTextLowercase{#1}}}
+  \renewcommand{\textsc}[1]{\smallcapsspacing{\textsmallcaps{#1}}}
+  \usepackage{fontspec}
+\fi
+\makeatletter
+\newcommand{\chapterauthor}[1]{%
+  {\parindent0pt\vspace*{-25pt}%
+  \linespread{1.1}\large\scshape#1%
+  \par\nobreak\vspace*{35pt}}
+  \@afterheading%
+}
+\makeatother
+
+\makeatletter
+\newcommand{\cellwidth}{\TX@col@width}\makeatother
+
+\newcommand{\nowrapcell}[2][c]{%
+ \begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
+\newcommand{\Xcell}[2]{%
+ \begin{tabularx}{#1}{X}#2\end{tabularx}}
+
+$macros
+\title{$title}
+\author{$author}
+\begin{document}
+\maketitle
+\newpage
+~\vfill
+\thispagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{\baselineskip}
+$copyright
+
+\par This is an article from \emph{Stanford Encyclopedia of Philosopy}, ed.~Edward N.~Zalta. URL: \url{$url}
+
+\par $pubhistory
+
+% \par The script used to generate this file can be found at \url{https://github.com/mondain-dev/ConvertSEP/}
+\cleardoublepage
+\newlength\tempparskip
+\newlength\tempparindent

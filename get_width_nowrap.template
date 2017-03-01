@@ -1,0 +1,37 @@
+%%% Based on the script by Paolo Brasolin: 
+%%% \url{http://tex.stackexchange.com/a/285774}
+
+\documentclass{article}
+\newbox\linebox
+\newbox\tempbox
+
+\newif\ifoutput
+
+\newdimen\lwCUR
+\newdimen\lwCURMAX
+
+\def\measure#1\par{
+  \lwCURMAX=0pt
+  \setbox\tempbox\vbox{#1\par\eat}
+  \ifoutput\box\tempbox\fi
+}
+
+\def\eat{{
+  \setbox\linebox\lastbox
+  \settowidth{\lwCUR}{\unhcopy\linebox}
+  \ifdim\lwCUR>\lwCURMAX\global\lwCURMAX=\lwCUR\fi
+  \ifvoid\linebox\else
+    \unskip\unpenalty\eat
+    \ifoutput
+      \noindent\box\linebox\rlap{~\,~\,~\,~\the\lwCUR}
+    \fi
+  \fi
+}}
+
+\begin{document}
+\outputtrue
+\measure $tex_to_measure \par
+\showthe\dimexpr\lwCURMAX
+\showthe\dimexpr1em
+\end{document}
+

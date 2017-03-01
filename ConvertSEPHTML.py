@@ -1,10 +1,15 @@
 import sys
+import os
 import os.path
 import re
 import requests
 import pypandoc
 import demjson
 import urllib
+import tempfile
+import shutil
+import uuid
+
 from subprocess import call
 from string import Template
 from bs4 import BeautifulSoup
@@ -14,6 +19,96 @@ def ConvertMathJaX2TeX(mathjax_str):
   latex_str = re.sub(r'\\begin{align(\*?)}', r'\\begin{aligned}', mathjax_str)
   latex_str = re.sub(r'\\end{align(\*?)}', r'\\end{aligned}', latex_str)
   return latex_str
+
+def TeXWidth(tex_str, nowrap):
+  script_template_fname = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'get_width.template')
+  if nowrap:
+    script_template_fname = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'get_width_nowrap.template')
+  f = open(script_template_fname, 'r')
+  script_template = Template(f.read())
+  f.close()
+  get_width_script = script_template.substitute(tex_to_measure=tex_str)
+  
+  DIR_CURRENT = os.getcwd()
+  DIR_TEMP    = tempfile.mkdtemp()
+  os.chdir(DIR_TEMP)
+  script_id = str(uuid.uuid4())
+  get_width_script_file = open(os.path.join(DIR_TEMP, script_id+'.tex'), "w")
+  get_width_script_file.write(get_width_script.encode('utf8'))
+  get_width_script_file.close()
+  
+  call(['xelatex', '-interaction=batchmode', script_id])
+  f_log = open(os.path.join(DIR_TEMP, script_id+'.log'), "r")
+  tex_output = []
+  for line in f_log:
+    if re.match(r'^>', line):
+      tex_output.append( line )
+  f_log.close()
+  os.chdir(DIR_CURRENT)
+  shutil.rmtree(DIR_TEMP)
+  
+  if len(tex_output) == 2 :
+     val = [float(re.sub('>\s*(.*)pt\.', r'\1', l)) for l in tex_output]
+     return val[0]/val[1]
+  else:
+    return 0
+
+def HTMLContentsWidth(contents, nowrap=False):
+  if not contents:
+    return 0
+  listTeXWidth = []
+  list_contents = []
+  if contents:
+    e_html = ''
+    for e in contents:
+      if isinstance(e, (str, unicode)):
+        e_html += unicode(e)
+      elif hasattr(e, 'name'):
+        if e.name in ['h2', 'h3', 'h4',  'ul', 'ol', 'p', 'blockquote', 'div']:
+          if e_html:
+            if e_html.strip():
+              latex_str = pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
+              listTeXWidth.append(TeXWidth(latex_str, nowrap))
+            e_html     = ''
+          listTeXWidth.append(TeXWidth(ConvertHTMLElement(e), nowrap))
+          #  shouldn't really happen
+        elif e.name == 'table':
+          listTeXWidth.append( HTMLEntityWidth(e, nowrap) )
+        else:
+          e_html += unicode(e)
+      else:
+        e_html += unicode(e)
+    if e_html:
+      latex_str = pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
+      listTeXWidth.append(TeXWidth(latex_str, nowrap))
+  return max(listTeXWidth)
+
+def HTMLEntityWidth(html_entity, nowrap=False):
+  MinCW=0
+  tag = html_entity.name
+  if tag == 'table':
+    table_width_matrix = []
+    for r in html_entity.children:
+      if r.name == 'tr':
+        row_width_vector = []
+        for d in r.children:
+          if d.name == 'td':
+            colspan = 1
+            rowspan = 1
+            cell_nowrap  = False
+            if d.has_attr('colspan'):
+              colspan = int(d['colspan'])
+            if d.has_attr('nowrap'):
+              if d['nowrap'] == 'nowrap':
+                cell_nowrap = True
+            td_width = HTMLContentsWidth(d.contents, nowrap or cell_nowrap)
+            row_width_vector.append(td_width)
+        table_width_matrix.append(row_width_vector)
+    MinCW = max([sum([wd for wd in wr]) for wr in table_width_matrix ])
+    # print table_width_matrix
+  else:
+    MinCW = HTMLContentsMinWidth(html_entity.contents, nowrap)
+  return MinCW
 
 def HTMLContents2TeX(contents, TableEnv=False):
   latex_str = ''
@@ -31,7 +126,7 @@ def HTMLContents2TeX(contents, TableEnv=False):
             else:
               latex_str += '\n'
             e_html     = ''
-          latex_str   += ConvertHTMLElement(e, TableEnv=TableEnv)
+          latex_str   += ConvertHTMLElement(e, TableEnv)
         else:
           e_html += unicode(e)
       else:
@@ -86,7 +181,7 @@ def ol_HTMLEntity2TeX(html_entity):
 
 def table_HTMLEntity2TeX(table_entity, TableEnv = False):
   table_matrix = []
-  max_width = 0
+  max_num_cols = 0
   for r in table_entity.children:
     if r.name == 'tr':
       row_vector = []
@@ -94,8 +189,8 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
         if d.name == 'td':
           colspan = 1
           rowspan = 1
-          nowrap  = 0
-          valign  = ''
+          nowrap  = False
+          valign  = 'l'
           align   = ''
           if d.has_attr('colspan'):
             colspan = int(d['colspan'])
@@ -103,39 +198,106 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
             rowspan = int(d['rowspan'])
           if d.has_attr('nowrap'):
             if d['nowrap'] == 'nowrap':
-              nowrap = 1
+              nowrap = True
           if d.has_attr('valign'):
+            # print d['valign']
             if d['valign'] == 'middle':
-              valign = 'm'
+              valign = 'M'
             if d['valign'] == 'bottom':
-              valign = 'b'   
-          td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
-          row_vector.append((td_latex, colspan, rowspan, nowrap, valign, align))
-      row_width = sum([d_element[1] for d_element in row_vector])
-      if row_width > max_width:
-        max_width = row_width
+              valign = 'B'
+          minWidth = HTMLContentsWidth(d.contents, nowrap)
+          maxWidth = HTMLContentsWidth(d.contents, True)
+          # td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
+          row_vector.append((colspan, rowspan, nowrap, valign, align, minWidth, maxWidth))
+      row_num_cells = sum([d_element[0] for d_element in row_vector])
+      if row_num_cells > max_num_cols:
+        max_num_cols = row_num_cells
       table_matrix.append(row_vector)
-  table_latex = '{\\begin{tabularx}{' 
-  if TableEnv:
-    table_latex += '\\cellwidth'
-  else:
-    table_latex += '\\textwidth'
-  table_latex += ('}{' + 'X'*max_width + '}')
-  for r in table_matrix :
-    row_latex = ''
+  
+  ## Column Widths
+  col_min_width = [None]  * max_num_cols
+  col_max_width = [None]  * max_num_cols
+  col_nowrap    = [True] * max_num_cols
+  for r in table_matrix:
+    c=0
     for d in r:
-      cell_latex = ''
-      if d[1] > 1 or d[3] :
-        cell_latex = '\\multicolumn{'+str(d[1])+'}{'+'c'+'}{\\nowrapcell{' + d[0] + '}}'
-      else:
-        cell_latex = '\\Xcell{' + d[0] + '}'
-      if row_latex == '':
-        row_latex = cell_latex
-      else:
-        row_latex += ' & ' + cell_latex
-    table_latex += row_latex
-    table_latex += '\\\\\n'
-  table_latex += '\\end{tabularx}}'
+      colspan = d[1]
+      if colspan == 1:
+        col_nowrap[c] = (col_nowrap and d[2])
+        if col_max_width[c] is None:
+          col_max_width[c] = d[6]
+        else:
+          col_max_width[c] = max(col_max_width[c], d[6])
+        if col_min_width[c] is None:
+          col_min_width[c] = d[5]
+        else:
+          col_min_width[c] = max(col_min_width[c], d[5])
+      c += colspan
+  
+  for r in table_matrix:
+    c=0
+    for d in r:
+      colspan = d[0]
+      if colspan > 1:
+        # print [d[5], d[6]]
+        if sum(col_min_width[c:(c+colspan)]) < d[5]:
+          for ci in range(c,(c+colspan)):
+            col_min_width[ci] += ((d[5] - sum(col_min_width[c:(c+colspan)]))/colspan)
+        if sum(col_max_width[c:(c+colspan)]) < d[6]:
+          for ci in range(c,(c+colspan)):
+            col_max_width[ci] += ((d[6] - sum(col_max_width[c:(c+colspan)]))/colspan)
+      c += colspan
+  
+  col_width = [None]  * max_num_cols
+  for c in range(max_num_cols):
+    # weighted mean
+    col_width[c] = .8*col_min_width[c] + .2*col_max_width[c]
+    # if col_width[c] < 8:
+    #   col_width[c] = col_min_width[c] + 2
+    # geometric mean
+    # col_width[c] = sqrt(col_min_width[c]*col_max_width[c]) 
+    # harmonic mean
+    # col_width[c] = 2/((1/col_min_width[c])+(1/col_max_width[c]))
+  
+  table_latex = '\\begin' 
+  if TableEnv:
+    table_latex += '{tabular}'
+  else:
+    table_latex += '{longtable}'
+  preamble = ''.join(['c' if col_nowrap[idx] else ('p{'+ ("%.2f" % col_width[idx]) +'em}') for idx in range(max_num_cols) ])
+  table_latex += ('{'+preamble+'}')
+  r_idx = 0
+  for r in table_entity.children:
+    row_latex = ''
+    if r.name == 'tr':
+      c_idx = 0
+      d_idx = 0
+      for d in r.children:
+        if d.name == 'td':
+          colspan = table_matrix[r_idx][d_idx][0]
+          cell_width = sum(col_width[c_idx:(c_idx+colspan)])
+          td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
+          
+          cell_latex = ' '
+          if td_latex.strip():
+            if colspan > 1 or table_matrix[r_idx][d_idx][2] :
+              cell_latex = '\\multicolumn{'+str(colspan)+'}{'+ table_matrix[r_idx][d_idx][3] +'}{\\nowrapcell{' + td_latex + '}}'
+            else:
+              cell_latex = '\\Xcell{'+("%.2f" % cell_width)+'em+2\\tabcolsep+0.5\\arrayrulewidth}{' + td_latex + '}'
+          if row_latex == '':
+            row_latex = cell_latex
+          else:
+            row_latex += ' & ' + cell_latex
+          d_idx += 1
+          c_idx += colspan
+      table_latex += row_latex
+      table_latex += '\\\\\n'
+      r_idx += 1
+  
+  if TableEnv:
+    table_latex += '\\end{tabular}'
+  else:
+    table_latex += '\\end{longtable}'
   return table_latex 
 
 def ConvertHTMLElement(html_element, TableEnv=False):
@@ -179,73 +341,17 @@ def ConvertHTML(entry_html_entity):
 
 
 def OutputTeX(title, author, preamble='', main_text='', bibliography='', acknowledgments='', macros='', pubhistory='', copyright='', url=''):
-  frontmatter_template=Template('\\documentclass[twoside]{tufte-book}\n\
-\\usepackage{csquotes}\n\
-\\usepackage{graphicx}\n\
-\\usepackage{enumerate}\n\
-\\usepackage{amsmath}\n\
-\\usepackage{amssymb}\n\
-\\usepackage{changepage}\n\
-\\usepackage{tabularx}\n\
-\n\
-\\usepackage{ifxetex}\n\
-\\ifxetex\n\
-  \\newcommand{\\textls}[2][5]{%\n\
-    \\begingroup\\addfontfeatures{LetterSpace=#1}#2\\endgroup\n\
-  }\n\
-  \\renewcommand{\\allcapsspacing}[1]{\\textls[15]{#1}}\n\
-  \\renewcommand{\\smallcapsspacing}[1]{\\textls[10]{#1}}\n\
-  \\renewcommand{\\allcaps}[1]{\\textls[15]{\\MakeTextUppercase{#1}}}\n\
-  \\renewcommand{\\smallcaps}[1]{\\smallcapsspacing{\\scshape\\MakeTextLowercase{#1}}}\n\
-  \\renewcommand{\\textsc}[1]{\\smallcapsspacing{\\textsmallcaps{#1}}}\n\
-  \\usepackage{fontspec}\n\
-\\fi\n\
-\\makeatletter\n\
-\\newcommand{\\chapterauthor}[1]{%\n\
-  {\\parindent0pt\\vspace*{-25pt}%\n\
-  \linespread{1.1}\\large\scshape#1%\n\
-  \par\\nobreak\\vspace*{35pt}}\n\
-  \\@afterheading%\n\
-}\n\
-\\makeatother\n\
-\n\
-\\makeatletter\n\
-\\newcommand\\cellwidth{\\TX@col@width}\n\
-\\makeatother\n\
-\n\
-\\newcommand{\\nowrapcell}[2][c]{%\n\
- \\begin{tabular}[#1]{@{}c@{}}#2\\end{tabular}}\n\
-\\newcommand{\\Xcell}[1]{%\n\
- \\begin{tabularx}{\\cellwidth}{X}#1\\end{tabularx}}\n\
-\n\
-$macros\
-\n\
-\\title{$title}\n\
-\\author{$author}\n\
-\\begin{document}\n\
-\\maketitle\n\
-\\newpage\n\
-~\\vfill\n\
-\\thispagestyle{empty}\n\
-\\setlength{\parindent}{0pt}\n\
-\\setlength{\\parskip}{\\baselineskip}\n\
-$copyright\n\
-\n\
-\par This is an article from \emph{Stanford Encyclopedia of Philosopy}, ed.~Edward N.~Zalta. URL: \\url{$url}\n\
-\n\
-\par $pubhistory\n\
-\n\
-% \par The script used to generate this file can be found at \\url{https://github.com/mondain-dev/ConvertSEP/}\n\
-\\cleardoublepage\n\
-\\newlength\\tempparskip\n\
-\\newlength\\tempparindent\n\
-')
-  string_TeX = frontmatter_template.substitute(title=title, author=author, copyright=copyright, pubhistory=pubhistory, url=url, macros=macros)
-  string_TeX = '\n'.join([string_TeX, preamble, '\n\\tableofcontents\n\n\\setcounter{secnumdepth}{2}',  main_text, bibliography, acknowledgments, '\\end{document}'])
-  return string_TeX
+  frontmatter_template_fname = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'frontmatter.template')
+  f = open(frontmatter_template_fname, 'r')
+  frontmatter_template=Template(f.read())
+  f.close()
+  
+  src_tex = frontmatter_template.substitute(title=title, author=author, copyright=copyright, pubhistory=pubhistory, url=url, macros=macros)
+  src_tex = '\n'.join([src_tex, preamble, '\n\\tableofcontents\n\n\\setcounter{secnumdepth}{2}',  main_text, bibliography, acknowledgments, '\\end{document}'])
+  return src_tex
 
-def ProcessNotes(tex_src, base_url):
-  note_list = re.findall(r'(\\textsuperscript\{\{\[\}(\\hyperdef\{\}\{.*\}\{\})?\{?\\href\{(.*)\\#(.*)\}\{(.*)\}\}?\{]\}\})', tex_src, flags=re.MULTILINE)
+def ProcessNotes(src_tex, base_url):
+  note_list = re.findall(r'(\\textsuperscript\{\{\[\}(\\hyperdef\{\}\{.*\}\{\})?\{?\\href\{(.*)\\#(.*)\}\{(.*)\}\}?\{]\}\})', src_tex, flags=re.MULTILINE)
   soup_dict = {}
   for note_url in list(set([n[2] for n in note_list])):
     r = requests.get(urljoin(base_url, note_url))
@@ -284,9 +390,9 @@ def ProcessNotes(tex_src, base_url):
       note_text = '\n'.join([ConvertHTMLElement(e) for e in n[5]])
       note_text = ''.join(['\\setlength{\\tempparskip}{\\parskip}\\setlength{\\tempparindent}{\\parindent}\\sidenote[][]{', note_text, '}\\setlength{\\parindent}{\\tempparindent}\\setlength{\\parskip}{\\tempparskip}'])
     note_superscript = n[0]
-    tex_src = tex_src.replace(note_superscript, note_text)
+    src_tex = src_tex.replace(note_superscript, note_text)
   
-  return re.sub(r'\\\[.*?\\\]', lambda x: ConvertMathJaX2TeX(x.group(0)), tex_src, flags=re.MULTILINE|re.DOTALL)
+  return re.sub(r'\\\[.*?\\\]', lambda x: ConvertMathJaX2TeX(x.group(0)), src_tex, flags=re.MULTILINE|re.DOTALL)
     
 
 def main():

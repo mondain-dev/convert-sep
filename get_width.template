@@ -1,0 +1,62 @@
+%%% Based on the script by Paolo Brasolin: 
+%%% \url{http://tex.stackexchange.com/a/285774}
+
+\documentclass{article}
+\newbox\linebox
+\newbox\tempbox
+
+\newif\ifoutput
+
+\newdimen\lwMIN
+\newdimen\lwMAX
+\newdimen\lwINC
+\newdimen\lwCUR
+\newdimen\lwACT
+\newdimen\lwCURMAX
+\newdimen\lwALLMIN
+\newdimen\hsALLMIN
+\newdimen\dwCUR
+\newdimen\dwMAX
+\newdimen\dwTOL
+
+\def\find#1\par{
+  \hsize=\lwCUR
+  \dwMAX=0pt
+  \lwCURMAX=0pt
+  \setbox\tempbox\vbox{#1\par\eat}
+  \ifdim\lwCURMAX<\lwALLMIN\global\lwALLMIN=\lwCURMAX\hsALLMIN=\hsize\fi
+  \ifdim\lwCUR>\lwMIN
+    \ifdim\dwMAX<\dwTOL
+    \advance\lwCUR-\lwINC
+    \find#1\par\fi\fi
+  \ifoutput\box\tempbox\fi
+}
+
+\def\eat{{
+  \setbox\linebox\lastbox
+  \settowidth{\lwACT}{\unhcopy\linebox}
+  \dwCUR=\dimexpr\lwACT-\dimexpr\lwCUR
+  \ifdim\dwCUR>\dwMAX\global\dwMAX=\dwCUR\fi
+  \ifdim\lwACT>\lwCURMAX\global\lwCURMAX=\lwACT\fi
+  \ifvoid\linebox\else
+    \unskip\unpenalty\eat
+    \ifoutput
+      \noindent\box\linebox\rlap{~\,~\,~\,~\the\dwCUR}
+    \fi
+  \fi
+}}
+
+\begin{document}
+\lwMIN=20pt
+\lwMAX=\textwidth
+\lwALLMIN=\textwidth
+\settowidth{\dwTOL}{alongword}
+\lwCUR=\lwMAX
+\lwINC=1pt
+\outputtrue
+\hsize=\lwMAX
+\hsALLMIN=\hsize
+\find $tex_to_measure \par
+\showthe\dimexpr\lwALLMIN
+\showthe\dimexpr1em
+\end{document}
