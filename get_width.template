@@ -53,7 +53,7 @@
 \settowidth{\dwTOL}{alongword}
 \lwCUR=\lwMAX
 \lwINC=1pt
-\outputtrue
+\outputfalse
 \hsize=\lwMAX
 \hsALLMIN=\hsize
 \find $tex_to_measure \par

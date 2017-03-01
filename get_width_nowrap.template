@@ -29,7 +29,7 @@
 }}
 
 \begin{document}
-\outputtrue
+\outputfalse
 \measure $tex_to_measure \par
 \showthe\dimexpr\lwCURMAX
 \showthe\dimexpr1em
