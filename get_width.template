@@ -39,7 +39,7 @@
   \ifdim\dwCUR>\dwMAX\global\dwMAX=\dwCUR\fi
   \ifdim\lwACT>\lwCURMAX\global\lwCURMAX=\lwACT\fi
   \ifvoid\linebox\else
-    \unskip\unpenalty\eat
+    \unskip\unpenalty\unskip\unpenalty\unskip\eat
     \ifoutput
       \noindent\box\linebox\rlap{~\,~\,~\,~\the\dwCUR}
     \fi
@@ -56,7 +56,8 @@
 \outputfalse
 \hsize=\lwMAX
 \hsALLMIN=\hsize
-\find $tex_to_measure \par
+\hyphenpenalty=100000
+\find \noindent $tex_to_measure \par
 \showthe\dimexpr\lwALLMIN
 \showthe\dimexpr1em
 \end{document}

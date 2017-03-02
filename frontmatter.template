@@ -7,6 +7,7 @@
 \usepackage{changepage}
 \usepackage{tabularx}
 \usepackage{longtable}
+\usepackage[export]{adjustbox}
 
 \usepackage{ifxetex}
 \ifxetex
@@ -35,9 +36,13 @@
 \newcommand{\nowrapcell}[2][c]{%
  \begin{tabular}[#1]{@{}c@{}}#2\end{tabular}}
 \newcommand{\Xcell}[2]{%
- \begin{tabularx}{#1}{X}#2\end{tabularx}}
+ \begin{tabularx}{#1}{@{}X@{}}#2\end{tabularx}}
+
+\newcommand{\lt}{<}
+\newcommand{\gt}{>}
 
 $macros
+
 \title{$title}
 \author{$author}
 \begin{document}

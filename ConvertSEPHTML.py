@@ -9,10 +9,11 @@ import urllib
 import tempfile
 import shutil
 import uuid
+import subprocess 
 
 from subprocess import call
 from string import Template
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment
 from urlparse import urljoin, urlparse
 
 def ConvertMathJaX2TeX(mathjax_str):
@@ -37,7 +38,8 @@ def TeXWidth(tex_str, nowrap):
   get_width_script_file.write(get_width_script.encode('utf8'))
   get_width_script_file.close()
   
-  call(['xelatex', '-interaction=batchmode', script_id])
+  FNULL = open(os.devnull, 'w')
+  call(['xelatex', '-interaction=batchmode', script_id], stdout=FNULL, stderr=subprocess.STDOUT)
   f_log = open(os.path.join(DIR_TEMP, script_id+'.log'), "r")
   tex_output = []
   for line in f_log:
@@ -113,24 +115,43 @@ def HTMLEntityWidth(html_entity, nowrap=False):
 def HTMLContents2TeX(contents, TableEnv=False):
   latex_str = ''
   list_contents = []
+  ignore = False
   if contents:
     e_html = ''
     for e in contents:
       if isinstance(e, (str, unicode)):
-        e_html += unicode(e)
+        if unicode(e) == 'pdf exclude begin':
+          ignore=True
+          # print 'HTMLContents2TeX: contents: str: pdf exclude begin'
+        elif unicode(e) == 'pdf exclude end':
+          ignore=False
+          # print 'HTMLContents2TeX: contents: str: pdf exclude end'
+        elif re.match(r'pdf include.*pdf include', unicode(e), flags=re.MULTILINE|re.DOTALL):
+          e_contents = BeautifulSoup(re.sub(r'pdf include(.*)pdf include', r'\1',  unicode(e), flags=re.MULTILINE|re.DOTALL).strip()).html.body.contents
+          latex_str += HTMLContents2TeX(e_contents)
+          # print 'HTMLContents2TeX: contents: str: pdf include'
+          # print e
+        else:
+          if not ignore:
+            e_html += unicode(e)
       elif hasattr(e, 'name'):
         if e.name in ['h2', 'h3', 'h4', 'p', 'blockquote', 'ul', 'ol', 'div', 'table']:
           if e_html:
             if e_html.strip():
-              latex_str += pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
+              if not ignore:
+                latex_str += pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
             else:
-              latex_str += '\n'
+              if not ignore:
+                latex_str += '\n'
             e_html     = ''
-          latex_str   += ConvertHTMLElement(e, TableEnv)
+          if not ignore:
+            latex_str   += ConvertHTMLElement(e, TableEnv)
         else:
-          e_html += unicode(e)
+          if not ignore:
+            e_html += unicode(e)
       else:
-        e_html += unicode(e)
+        if not ignore:
+          e_html += unicode(e)
     if e_html:
       latex_str += pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
   return latex_str
@@ -252,20 +273,22 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
   for c in range(max_num_cols):
     # weighted mean
     col_width[c] = .8*col_min_width[c] + .2*col_max_width[c]
-    # if col_width[c] < 8:
-    #   col_width[c] = col_min_width[c] + 2
     # geometric mean
     # col_width[c] = sqrt(col_min_width[c]*col_max_width[c]) 
     # harmonic mean
     # col_width[c] = 2/((1/col_min_width[c])+(1/col_max_width[c]))
+    threshold = 8
+    w_m = max(0, col_max_width[c] - threshold)
+    w_M = 1
+    col_width[c] = (w_m*col_width[c] + w_M*col_max_width[c])/(w_m + w_M)
   
   table_latex = '\\begin' 
   if TableEnv:
     table_latex += '{tabular}'
   else:
     table_latex += '{longtable}'
-  preamble = ''.join(['c' if col_nowrap[idx] else ('p{'+ ("%.2f" % col_width[idx]) +'em}') for idx in range(max_num_cols) ])
-  table_latex += ('{'+preamble+'}')
+  preamble = ''.join(['c' if col_nowrap[idx] else ('p{'+ ("%.2f" % col_width[idx]) +'em+2\\arrayrulewidth}') for idx in range(max_num_cols) ])
+  table_latex += ('{'+preamble+'}\n')
   r_idx = 0
   for r in table_entity.children:
     row_latex = ''
@@ -282,8 +305,10 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
           if td_latex.strip():
             if colspan > 1 or table_matrix[r_idx][d_idx][2] :
               cell_latex = '\\multicolumn{'+str(colspan)+'}{'+ table_matrix[r_idx][d_idx][3] +'}{\\nowrapcell{' + td_latex + '}}'
+            elif '\\\\' in td_latex:
+              cell_latex = '\\Xcell{'+("%.2f" % cell_width)+'em+2\\arrayrulewidth}{' + td_latex + '}'
             else:
-              cell_latex = '\\Xcell{'+("%.2f" % cell_width)+'em+2\\tabcolsep+0.5\\arrayrulewidth}{' + td_latex + '}'
+              cell_latex = td_latex
           if row_latex == '':
             row_latex = cell_latex
           else:
@@ -327,15 +352,26 @@ def ConvertHTMLElement(html_element, TableEnv=False):
 
 def ConvertHTML(entry_html_entity):
   entry_TeX = ''
+  ignore=False
   if entry_html_entity:
     if entry_html_entity.children:
       for i in entry_html_entity.children:
         if i.name:
-          entry_TeX = '\n'.join([entry_TeX, ConvertHTMLElement(i).strip()])
-          if i.name == 'p':
-            entry_TeX = entry_TeX + '\n'
-        elif re.match(r'\\\[.*\\\]', str(i).strip(), flags=re.MULTILINE|re.DOTALL):
-          entry_TeX = ''.join([re.sub('\n\n\Z', '\n', entry_TeX, flags=re.MULTILINE), str(i).strip()])
+          if not ignore:
+            entry_TeX = '\n'.join([entry_TeX, ConvertHTMLElement(i).strip()])
+            if i.name == 'p':
+              entry_TeX = entry_TeX + '\n'
+        else:
+          if str(i) == 'pdf exclude begin':
+            ignore=True
+            # print 'ConvertHTML: pdf exclude begin'
+          elif str(i) == 'pdf exclude end':
+            ignore=False
+            # print 'ConvertHTML: pdf exclude end'
+          else:
+            if not ignore:
+              if re.match(r'\\\[.*\\\]', str(i).strip(), flags=re.MULTILINE|re.DOTALL):
+                entry_TeX = ''.join([re.sub('\n\n\Z', '\n', entry_TeX, flags=re.MULTILINE), str(i).strip()])
   return entry_TeX
 
 
@@ -464,7 +500,9 @@ def main():
       img_local_pdf = re.sub(r'(.*).svg', r'\1.pdf', img_local)
       img_pdf = re.sub(r'(.*).svg', r'\1.pdf', img)
       call(["inkscape", '-D', '-z', ''.join(['--file=', img_local]), ''.join(['--export-pdf=', img_local_pdf])])
-      full_TeX = re.sub(''.join([r'\\includegraphics{', img, '}']), ''.join([r'\\includegraphics{', img_pdf, '}']), full_TeX, flags=re.MULTILINE)
+      full_TeX = re.sub(''.join([r'\\includegraphics{', img, '}']), ''.join([r'\\includegraphics[max width=\\textwidth]{', img_pdf, '}']), full_TeX, flags=re.MULTILINE)
+    else:
+      full_TeX = re.sub(''.join([r'\\includegraphics{', img, '}']), ''.join([r'\\includegraphics[max width=\\textwidth]{', img, '}']), full_TeX, flags=re.MULTILINE)
   
   output_file = open(output, "w")
   output_file.write(full_TeX.encode('utf8'))

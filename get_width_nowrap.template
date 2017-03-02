@@ -21,7 +21,7 @@
   \settowidth{\lwCUR}{\unhcopy\linebox}
   \ifdim\lwCUR>\lwCURMAX\global\lwCURMAX=\lwCUR\fi
   \ifvoid\linebox\else
-    \unskip\unpenalty\eat
+    \unskip\unpenalty\unskip\unpenalty\unskip\eat
     \ifoutput
       \noindent\box\linebox\rlap{~\,~\,~\,~\the\lwCUR}
     \fi
@@ -30,7 +30,7 @@
 
 \begin{document}
 \outputfalse
-\measure $tex_to_measure \par
+\measure \noindent $tex_to_measure \par
 \showthe\dimexpr\lwCURMAX
 \showthe\dimexpr1em
 \end{document}
