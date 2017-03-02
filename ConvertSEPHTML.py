@@ -234,8 +234,8 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
           colspan = 1
           rowspan = 1
           nowrap  = False
-          valign  = 'l'
-          align   = ''
+          valign  = 'middle'
+          align   = 'left'
           if d.has_attr('colspan'):
             colspan = int(d['colspan'])
           if d.has_attr('rowspan'):
@@ -244,11 +244,12 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
             if d['nowrap'] == 'nowrap':
               nowrap = True
           if d.has_attr('valign'):
-            # print d['valign']
-            if d['valign'] == 'middle':
-              valign = 'M'
-            if d['valign'] == 'bottom':
-              valign = 'B'
+            valign = d['valign']
+          if d.has_attr('align'):
+            align = d['align']
+          if d.has_attr('class'):
+            if 'center' in d['class']:
+              align='center'
           minWidth = HTMLContentsWidth(d.contents, nowrap)
           maxWidth = HTMLContentsWidth(d.contents, True)
           # td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
@@ -259,23 +260,23 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
       table_matrix.append(row_vector)
   
   ## Column Widths
-  col_min_width = [None]  * max_num_cols
-  col_max_width = [None]  * max_num_cols
+  col_min_width = [None] * max_num_cols
+  col_max_width = [None] * max_num_cols
   col_nowrap    = [True] * max_num_cols
   for r in table_matrix:
     c=0
     for d in r:
-      colspan = d[1]
+      colspan = d[0]
       if colspan == 1:
         col_nowrap[c] = (col_nowrap and d[2])
-        if col_max_width[c] is None:
-          col_max_width[c] = d[6]
-        else:
-          col_max_width[c] = max(col_max_width[c], d[6])
         if col_min_width[c] is None:
           col_min_width[c] = d[5]
         else:
           col_min_width[c] = max(col_min_width[c], d[5])
+        if col_max_width[c] is None:
+          col_max_width[c] = d[6]
+        else:
+          col_max_width[c] = max(col_max_width[c], d[6])
       c += colspan
   
   for r in table_matrix:
@@ -284,12 +285,15 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
       colspan = d[0]
       if colspan > 1:
         # print [d[5], d[6]]
+        n_wrap = colspan - sum(col_nowrap[c:(c+colspan)])
         if sum(col_min_width[c:(c+colspan)]) < d[5]:
           for ci in range(c,(c+colspan)):
-            col_min_width[ci] += ((d[5] - sum(col_min_width[c:(c+colspan)]))/colspan)
+            if not col_nowrap[ci]:
+              col_min_width[ci] += ((d[5] - sum(col_min_width[c:(c+colspan)]))/n_wrap)
         if sum(col_max_width[c:(c+colspan)]) < d[6]:
           for ci in range(c,(c+colspan)):
-            col_max_width[ci] += ((d[6] - sum(col_max_width[c:(c+colspan)]))/colspan)
+            if not col_nowrap[ci]:
+              col_max_width[ci] += ((d[6] - sum(col_max_width[c:(c+colspan)]))/n_wrap)
       c += colspan
   
   col_width = [None]  * max_num_cols
@@ -310,7 +314,7 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
     table_latex += '{tabular}'
   else:
     table_latex += '{longtable}'
-  preamble = ''.join(['c' if col_nowrap[idx] else ('p{'+ ("%.2f" % col_width[idx]) +'em+2\\arrayrulewidth}') for idx in range(max_num_cols) ])
+  preamble = ''.join(['l' if col_nowrap[idx] else ('p{'+ ("%.2f" % col_width[idx]) +'em+2\\arrayrulewidth}') for idx in range(max_num_cols) ])
   table_latex += ('{'+preamble+'}\n')
   r_idx = 0
   for r in table_entity.children:
@@ -321,17 +325,14 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
       for d in r.children:
         if d.name == 'td':
           colspan = table_matrix[r_idx][d_idx][0]
+          rowspan = table_matrix[r_idx][d_idx][1]
+          nowrap  = table_matrix[r_idx][d_idx][2]
+          valign  = table_matrix[r_idx][d_idx][3]
+          align   = table_matrix[r_idx][d_idx][4]
           cell_width = sum(col_width[c_idx:(c_idx+colspan)])
           td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
           
-          cell_latex = ' '
-          if td_latex.strip():
-            if colspan > 1 or table_matrix[r_idx][d_idx][2] :
-              cell_latex = '\\multicolumn{'+str(colspan)+'}{'+ table_matrix[r_idx][d_idx][3] +'}{\\nowrapcell{' + td_latex + '}}'
-            elif '\\\\' in td_latex:
-              cell_latex = '\\Xcell{'+("%.2f" % cell_width)+'em+2\\arrayrulewidth}{' + td_latex + '}'
-            else:
-              cell_latex = td_latex
+          cell_latex = RenderCell(td_latex, cell_width, colspan, rowspan, nowrap, valign, align)
           if row_latex == '':
             row_latex = cell_latex
           else:
@@ -347,6 +348,88 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
   else:
     table_latex += '\\end{longtable}'
   return table_latex 
+
+def RenderCell(tex_src, width, colspan=1, rowspan=1, nowrap=False, valign='middle', align='left'):
+  cell_latex=' '
+  
+  halign_tag=False
+  if align != 'left':
+    halign_tag = True
+  
+  cell_wrapper=False
+  if (not nowrap) and '\\\\' in tex_src:
+    cell_wrapper=True
+  elif nowrap:
+    cell_wrapper=True
+  
+  multicolumn_tag=False
+  if colspan > 1:
+    multicolumn_tag=True
+  if valign != 'top':
+    multicolumn_tag=True
+  if cell_wrapper and align != 'left':
+    multicolumn_tag=True
+  
+  if tex_src.strip():
+    cell_latex = tex_src.strip() + ' '
+    if tex_src.strip():
+      if halign_tag:
+        if align == 'center':
+          cell_latex = '{\\centering ' + cell_latex + '}'
+        elif align == 'right':
+          cell_latex = '{\\raggedleft ' + cell_latex + '}'
+    if cell_wrapper:
+      if not nowrap:
+        cell_latex = '\\Xcell{'+("%.2f" % width)+'em+2\\arrayrulewidth}{' + cell_latex + '}'
+      else:
+        # if valign == 'top':
+        #   cell_latex = '\\nowrapcell[t]{' + cell_latex + '}'
+        # elif valign == 'right':
+        #   cell_latex = '\\nowrapcell[b]{' + cell_latex + '}'
+        # else:
+        cell_align_nowrap = 'l'
+        if align == 'center':
+          cell_align_nowrap = 'c'
+        elif align == 'right':
+          cell_align_nowrap = 'r'
+        cell_valign_nowrap = 'c'
+        if valign == 'top':
+          cell_valign_nowrap = 't'
+        elif valign == 'bottom':
+          cell_valign_nowrap = 'b'
+        else:
+          cell_valign_nowrap = 'c'
+        cell_latex = '\\nowrapcell['+cell_valign_nowrap+']{'+cell_align_nowrap+'}{' + cell_latex + '}'
+    
+    if multicolumn_tag:
+      column_def = 'l'
+      if valign == 'top':
+        if nowrap:
+          column_def = align[0]
+        else:
+          if align=='center':
+            column_def = 'C{' + ("%.2f" % width) + 'em}'
+          elif align=='right':
+            column_def = 'R{' + ("%.2f" % width) + 'em}'
+          else:
+            column_def = 'L{' + ("%.2f" % width) + 'em}'
+      elif valign == 'bottom':
+        if align=='center':
+          column_def = 'V{' + ("%.2f" % width) + 'em}'
+        elif align=='right':
+          column_def = 'B{' + ("%.2f" % width) + 'em}'
+        else:
+          column_def = 'b{' + ("%.2f" % width) + 'em}'
+      else:
+        if align=='center':
+          column_def = 'M{' + ("%.2f" % width) + 'em}'
+        elif align=='right':
+          column_def = 'K{' + ("%.2f" % width) + 'em}'
+        else:
+          column_def = 'm{' + ("%.2f" % width) + 'em}'
+      cell_latex = '\\multicolumn{' + str(colspan) + '}{' + column_def + '}{' + cell_latex + '}'
+  
+  return cell_latex
 
 def ConvertHTMLElement(html_element, TableEnv=False):
   tag = html_element.name
