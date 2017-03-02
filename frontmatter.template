@@ -41,7 +41,7 @@
 \newcommand{\lt}{<}
 \newcommand{\gt}{>}
 
-$macros
+$MathJaxMacros
 
 \title{$title}
 \author{$author}
