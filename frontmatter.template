@@ -1,5 +1,4 @@
 \documentclass[twoside]{tufte-book}
-\usepackage{csquotes}
 \usepackage{graphicx}
 \usepackage{enumerate}
 \usepackage{amsmath}
@@ -7,7 +6,6 @@
 \usepackage{changepage}
 \usepackage{tabularx}
 \usepackage{longtable}
-\usepackage{makecell}
 \usepackage[export]{adjustbox}
 
 \usepackage{ifxetex}
