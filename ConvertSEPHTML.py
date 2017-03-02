@@ -295,7 +295,7 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
   col_width = [None]  * max_num_cols
   for c in range(max_num_cols):
     # weighted mean
-    col_width[c] = .8*col_min_width[c] + .2*col_max_width[c]
+    col_width[c] = .9*col_min_width[c] + .1*col_max_width[c]
     # geometric mean
     # col_width[c] = sqrt(col_min_width[c]*col_max_width[c]) 
     # harmonic mean
