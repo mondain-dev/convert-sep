@@ -233,7 +233,7 @@ def HTMLContents2TeX(contents, TableEnv=False):
           latex_str += '\n'
           e_html = ''
         elif re.match(r'pdf include.*pdf include', unicode(e), flags=re.MULTILINE|re.DOTALL):
-          e_contents = BeautifulSoup(re.sub(r'pdf include(.*)pdf include', r'\1',  unicode(e), flags=re.MULTILINE|re.DOTALL).strip()).html.body.contents
+          e_contents = BeautifulSoup(re.sub(r'pdf include(.*)pdf include', r'\1',  unicode(e), flags=re.MULTILINE|re.DOTALL).strip(), 'lxml').html.body.contents
           latex_str += HTMLContents2TeX(e_contents)
           # print 'HTMLContents2TeX: contents: str: pdf include'
         else:
@@ -616,7 +616,7 @@ def ConvertHTML(entry_html_entity):
             ignore=False
             # print 'ConvertHTML: pdf exclude end'
           elif re.match(r'pdf include.*pdf include', unicode(i), flags=re.MULTILINE|re.DOTALL):
-            i_contents = BeautifulSoup(re.sub(r'pdf include(.*)pdf include', r'\1',  unicode(i), flags=re.MULTILINE|re.DOTALL).strip()).html.body.contents
+            i_contents = BeautifulSoup(re.sub(r'pdf include(.*)pdf include', r'\1',  unicode(i), flags=re.MULTILINE|re.DOTALL).strip(), 'lxml').html.body.contents
             entry_TeX += HTMLContents2TeX(i_contents)
             # print 'ConvertHTML: pdf include'
           else:
@@ -645,7 +645,7 @@ def ProcessNotes(src_tex, base_url):
   soup_dict = {}
   for note_url in list(set([n[2] for n in note_list])):
     r = requests.get(urljoin(base_url, note_url))
-    soup = BeautifulSoup(r.text)
+    soup = BeautifulSoup(r.text, 'lxml')
     soup_dict[note_url] = soup
   
   for note_url in soup_dict:
@@ -699,7 +699,7 @@ def main():
   
   r  = requests.get(url)
   
-  soup = BeautifulSoup(r.text)
+  soup = BeautifulSoup(r.text, "lxml")
   
   TeXMacros = ''
   for s in soup.find_all('script'):
