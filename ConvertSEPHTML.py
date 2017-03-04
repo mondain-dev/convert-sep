@@ -10,7 +10,6 @@ import tempfile
 import shutil
 import uuid
 import subprocess 
-import numpy
 
 from subprocess import call
 from string import Template
