@@ -5,11 +5,10 @@ import re
 import requests
 import pypandoc
 import demjson
-import urllib
 import tempfile
 import shutil
 import uuid
-import subprocess 
+import subprocess
 
 from subprocess import call
 from string import Template
@@ -749,8 +748,9 @@ def main():
   
   for img in re.findall(r'\\includegraphics{(.*?)}', full_TeX, flags=re.MULTILINE):
     img_local = os.path.join(os.path.dirname(os.path.abspath(output)), img)
-    downloader = urllib.URLopener()
-    downloader.retrieve(urljoin(url, img), img_local)
+    r_img = requests.get(urljoin(url, img))
+    with open(img_local, 'wb') as img_local_file:
+      img_local_file.write(r_img.content)
     if re.match('.*.svg', img):
       img_local_pdf = re.sub(r'(.*).svg', r'\1.pdf', img_local)
       img_pdf = re.sub(r'(.*).svg', r'\1.pdf', img)
