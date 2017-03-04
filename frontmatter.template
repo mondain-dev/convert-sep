@@ -33,17 +33,10 @@
 \newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash}p{#1}}
 \newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash}p{#1}}
 
-\newcolumntype{V}[1]{>{\raggedright\let\newline\\\arraybackslash}b{#1}}
-\newcolumntype{B}[1]{>{\centering\let\newline\\\arraybackslash}b{#1}}
-
-\newcolumntype{M}[1]{>{\centering\let\newline\\\arraybackslash}m{#1}}
-\newcolumntype{K}[1]{>{\raggedleft\let\newline\\\arraybackslash}m{#1}}
-
-
-\newcommand{\nowrapcell}[3][c]{%
+\newcommand{\nowrapcell}[3][t]{%
  \begin{tabular}[#1]{@{}#2@{}}#3\end{tabular}}
-\newcommand{\Xcell}[2]{%
- \begin{tabularx}{#1}{@{}X@{}}#2\end{tabularx}}
+% \newcommand{\Xcell}[2]{%
+%  \begin{tabularx}{#1}{@{}X@{}}#2\end{tabularx}}
 
 \newcommand{\lt}{<}
 \newcommand{\gt}{>}
@@ -67,5 +60,6 @@ $copyright
 
 % \par The script used to generate this file can be found at \url{https://github.com/mondain-dev/ConvertSEP/}
 \cleardoublepage
-\newlength\tempparskip
+\newskip\tempparskip
+\newskip\cellskip
 \newlength\tempparindent

@@ -1,0 +1,10 @@
+\documentclass{article}
+
+\begin{document}
+\newsavebox\abox
+\hsize=$hsize
+
+\savebox\aBox{\vbox{\noindent $tex_to_measure }}
+\showthe\dimexpr\ht\box0+\dimexpr\dp\box0
+\showthe\dimexpr1ex
+\end{document}

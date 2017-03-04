@@ -10,6 +10,7 @@ import tempfile
 import shutil
 import uuid
 import subprocess 
+import numpy
 
 from subprocess import call
 from string import Template
@@ -53,15 +54,75 @@ def TeXWidth(tex_str, nowrap):
   shutil.rmtree(DIR_TEMP)
   
   if len(tex_output) == 2 :
-     val = [float(re.sub('>\s*(.*)pt\.', r'\1', l)) for l in tex_output]
-     return val[0]/val[1]
+    val = [float(re.sub('>\s*(.*)pt\.', r'\1', l)) for l in tex_output]
+    return [val[0]/val[1], 0.0, 0.0]
   else:
-    return 0
+    return [0.0, 0.0, 0.0]
+
+def TeXTotalHeight(tex_str, hsize='\\textwidth'):
+  script_template_fname = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'get_total_height.template')
+  f = open(script_template_fname, 'r')
+  script_template = Template(f.read())
+  f.close()
+  get_width_script = script_template.substitute(hsize=hsize, tex_to_measure=tex_str)
+  
+  DIR_CURRENT = os.getcwd()
+  DIR_TEMP    = tempfile.mkdtemp()
+  os.chdir(DIR_TEMP)
+  script_id = str(uuid.uuid4())
+  get_width_script_file = open(os.path.join(DIR_TEMP, script_id+'.tex'), "w")
+  get_width_script_file.write(get_width_script.encode('utf8'))
+  get_width_script_file.close()
+  
+  FNULL = open(os.devnull, 'w')
+  call(['xelatex', '-interaction=batchmode', script_id], stdout=FNULL, stderr=subprocess.STDOUT)
+  f_log = open(os.path.join(DIR_TEMP, script_id+'.log'), "r")
+  tex_output = []
+  for line in f_log:
+    if re.match(r'^>', line):
+      tex_output.append( line )
+  f_log.close()
+  os.chdir(DIR_CURRENT)
+  shutil.rmtree(DIR_TEMP)
+  
+  if len(tex_output) == 2 :
+    val = [float(re.sub('>\s*(.*)pt\.', r'\1', l)) for l in tex_output]
+    return val[0]/val[1]
+  else:
+    return 0.0
+
+
+def WidthGT(w1, w2, w_em=10.00002, w_tabcolsep=6, w_arrayrulewidth=0.4):
+  w1AGETw2 = True
+  w1ALETw2 = True
+  for i in range(len(w1)):
+    if w1[i] < w2[i]:
+      w1AGETw2 = False
+    if w1[i] > w2[i]:
+      w1ALETw2 = False
+  if w1AGETw2:
+    return True
+  elif w1ALETw2:
+    return False
+  else:
+    return w1[0]*w_em + w1[1]* w_tabcolsep + w1[2]*w_arrayrulewidth >= w2[0]*w_em + w2[1]* w_tabcolsep + w2[2]*w_arrayrulewidth
+
+def MaxWidth(w1, w2):
+  if WidthGT(w1, w2):
+    return w1
+  return w2
+
+def SumWidth(width_list):
+  sum_width = [0.0] * 3
+  if width_list:
+    for w in width_list:
+      sum_width[0] += w[0]
+      sum_width[1] += w[1]
+      sum_width[2] += w[2]
+  return sum_width
 
 def HTMLContentsWidth(contents, nowrap=False):
-  if not contents:
-    return 0
-  listTeXWidth = []
+  maxWidth = [0.0, 0.0, 0.0]
   list_contents = []
   if contents:
     e_html = ''
@@ -73,26 +134,32 @@ def HTMLContentsWidth(contents, nowrap=False):
           if e_html:
             if e_html.strip():
               latex_str = pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
-              listTeXWidth.append(TeXWidth(latex_str, nowrap))
-            e_html     = ''
-          listTeXWidth.append(TeXWidth(ConvertHTMLElement(e), nowrap))
+              width = TeXWidth(latex_str, nowrap)
+              maxWidth = MaxWidth(width, maxWidth)
+            e_html = ''
+          width = TeXWidth(ConvertHTMLElement(e), nowrap)
+          maxWidth = MaxWidth(width, maxWidth)
           #  shouldn't really happen
         elif e.name == 'table':
-          listTeXWidth.append( HTMLEntityWidth(e, nowrap) )
+          # print maxWidth
+          width    = HTMLEntityWidth(e, nowrap)
+          maxWidth = MaxWidth(width, maxWidth)
+          # print width
+          # print maxWidth
         else:
           e_html += unicode(e)
       else:
         e_html += unicode(e)
     if e_html:
       latex_str = pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
-      listTeXWidth.append(TeXWidth(latex_str, nowrap))
-  return max(listTeXWidth)
+      width = TeXWidth(latex_str, nowrap)
+      maxWidth = MaxWidth(width, maxWidth)
+  return maxWidth
 
 def HTMLEntityWidth(html_entity, nowrap=False):
-  MinCW=0
   tag = html_entity.name
   if tag == 'table':
-    table_width_matrix = []
+    table_width = [0,0,0]
     for r in html_entity.children:
       if r.name == 'tr':
         row_width_vector = []
@@ -107,13 +174,35 @@ def HTMLEntityWidth(html_entity, nowrap=False):
               if d['nowrap'] == 'nowrap':
                 cell_nowrap = True
             td_width = HTMLContentsWidth(d.contents, nowrap or cell_nowrap)
+            td_width[1] += 2.0
+            td_width[2] += 1.0
             row_width_vector.append(td_width)
-        table_width_matrix.append(row_width_vector)
-    MinCW = max([sum([wd for wd in wr]) for wr in table_width_matrix ])
-    # print table_width_matrix
+        row_width = SumWidth(row_width_vector)
+        row_width[2] += 1.0
+        table_width = MaxWidth(row_width, table_width)
+    # print table_width
+    return table_width
   else:
-    MinCW = HTMLContentsMinWidth(html_entity.contents, nowrap)
-  return MinCW
+    return HTMLContentsMinWidth(html_entity.contents, nowrap)
+
+def PrintWidth(width):
+  list_width_str = []
+  str_em=("%.3fem" % width[0])
+  if str_em != "0.00em":
+    list_width_str.append(str_em)
+  
+  str_tcs=("%.3f\\tabcolsep" % width[1])
+  if str_tcs != '0.00\\tabcolsep':
+    list_width_str.append(str_tcs)
+  
+  str_arw=("%.3f\\arrayrulewidth" % width[2])
+  if str_arw != "0.00\\arrayrulewidth":
+    list_width_str.append(str_arw)
+  
+  if list_width_str:
+    return '+'.join(list_width_str)
+  else:
+    return '0pt'
 
 def HTMLContents2TeX(contents, TableEnv=False):
   latex_str = ''
@@ -254,11 +343,12 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
           maxWidth = HTMLContentsWidth(d.contents, True)
           # td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
           row_vector.append((colspan, rowspan, nowrap, valign, align, minWidth, maxWidth))
-      row_num_cells = sum([d_element[0] for d_element in row_vector])
-      if row_num_cells > max_num_cols:
-        max_num_cols = row_num_cells
+      row_num_cols = sum([d_element[0] for d_element in row_vector])
+      if row_num_cols > max_num_cols:
+        max_num_cols = row_num_cols
       table_matrix.append(row_vector)
   
+  # print table_matrix
   ## Column Widths
   col_min_width = [None] * max_num_cols
   col_max_width = [None] * max_num_cols
@@ -272,12 +362,13 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
         if col_min_width[c] is None:
           col_min_width[c] = d[5]
         else:
-          col_min_width[c] = max(col_min_width[c], d[5])
+          col_min_width[c] = MaxWidth(col_min_width[c], d[5])
         if col_max_width[c] is None:
           col_max_width[c] = d[6]
         else:
-          col_max_width[c] = max(col_max_width[c], d[6])
+          col_max_width[c] = MaxWidth(col_max_width[c], d[6])
       c += colspan
+  
   
   for r in table_matrix:
     c=0
@@ -286,40 +377,92 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
       if colspan > 1:
         # print [d[5], d[6]]
         n_wrap = colspan - sum(col_nowrap[c:(c+colspan)])
-        if sum(col_min_width[c:(c+colspan)]) < d[5]:
+        if WidthGT(d[5], SumWidth(col_min_width[c:(c+colspan)])):
           for ci in range(c,(c+colspan)):
             if not col_nowrap[ci]:
-              col_min_width[ci] += ((d[5] - sum(col_min_width[c:(c+colspan)]))/n_wrap)
-        if sum(col_max_width[c:(c+colspan)]) < d[6]:
+              for j in range(len(col_min_width[ci])):
+                col_min_width[ci][j] += ((d[5][j] - sum([w[j] for w in col_min_width[c:(c+colspan)]]))/n_wrap)
+                # print 'expanded'
+        if WidthGT(d[6], SumWidth(col_max_width[c:(c+colspan)])):
           for ci in range(c,(c+colspan)):
             if not col_nowrap[ci]:
-              col_max_width[ci] += ((d[6] - sum(col_max_width[c:(c+colspan)]))/n_wrap)
+              for j in range(len(col_max_width[ci])):
+                col_max_width[ci][j] += ((d[6][j] - sum([w[j] for w in col_max_width[c:(c+colspan)]]))/n_wrap)
+                # print 'expanded'
       c += colspan
   
-  col_width = [None]  * max_num_cols
-  for c in range(max_num_cols):
-    # weighted mean
-    col_width[c] = .9*col_min_width[c] + .1*col_max_width[c]
-    # geometric mean
-    # col_width[c] = sqrt(col_min_width[c]*col_max_width[c]) 
-    # harmonic mean
-    # col_width[c] = 2/((1/col_min_width[c])+(1/col_max_width[c]))
-    threshold = 8
-    w_m = max(0, col_max_width[c] - threshold)
-    w_M = 1
-    col_width[c] = (w_m*col_width[c] + w_M*col_max_width[c])/(w_m + w_M)
   
+  col_width = []
+  for c in range(max_num_cols):
+    threshold = 8
+    weight_mu = max(0, col_max_width[c][0] - threshold)
+    weight_M  = 1
+    w = []
+    for j in range(len(col_min_width[c])):
+      # weighted mean
+      mu = .9*col_min_width[c][j] + .1*col_max_width[c][j]
+      # geometric mean
+      # col_width[c] = sqrt(col_min_width[c]*col_max_width[c]) 
+      # harmonic mean
+      # col_width[c] = 2/((1/col_min_width[c])+(1/col_max_width[c]))
+      w.append((weight_mu*mu + weight_M*col_max_width[c][j])/(weight_mu + weight_M))
+    col_width.append(w)
+      
   table_latex = '\\begin' 
   if TableEnv:
     table_latex += '{tabular}'
   else:
     table_latex += '{longtable}'
-  preamble = ''.join(['l' if col_nowrap[idx] else ('p{'+ ("%.2f" % col_width[idx]) +'em+2\\arrayrulewidth}') for idx in range(max_num_cols) ])
+  preamble = ''.join(['l' if col_nowrap[idx] else ('p{'+ PrintWidth(col_width[idx][0:2] + [col_width[idx][2]+2]) + '}') for idx in range(max_num_cols) ])
   table_latex += ('{'+preamble+'}\n')
   r_idx = 0
   for r in table_entity.children:
     row_latex = ''
     if r.name == 'tr':
+      row_td_latex = []
+      for d in r.children:
+        if d.name == 'td':
+          td_latex = ''
+          if d.contents:
+            td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
+          row_td_latex.append(td_latex)
+      
+      row_num_cells = len(row_td_latex)
+      non_empty_cells = [False] * row_num_cells
+      for idx in range(row_num_cells):
+        if td_latex.strip():
+          non_empty_cells[idx] = True
+      
+      row_skip = [0] * row_num_cells
+      needs_skip = False
+      if sum(non_empty_cells) > 1:
+        needs_skip = not all([table_matrix[r_idx][i][3]=='top' for i in range(row_num_cells) if non_empty_cells[i]])
+      
+      d_idx = 0
+      c_idx = 0
+      if needs_skip:
+        max_total_height = 0
+        cell_heights = []
+        for td_latex in row_td_latex:
+          if td_latex.strip():
+            colspan = table_matrix[r_idx][d_idx][0]
+            cell_width = SumWidth(col_width[c_idx:(c_idx+colspan)])
+            cell_width[1] += (2*(colspan-1))
+            cell_width[2] += (colspan-1)
+            h = TeXTotalHeight(td_latex, )
+            if h > max_total_height:
+              max_total_height = h
+            cell_heights.append(h)
+          else:
+            cell_heights.append(0)
+          c_idx+=colspan
+          d_idx+=1
+        for i in range(row_num_cells):
+          if table_matrix[r_idx][i][3]=='middle':
+            row_skip[i] = .5*(max_total_height - cell_heights[i])
+          elif table_matrix[r_idx][i][3]=='bottom':
+            row_skip[i] = (max_total_height - cell_heights[i])
+            
       c_idx = 0
       d_idx = 0
       for d in r.children:
@@ -329,14 +472,18 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
           nowrap  = table_matrix[r_idx][d_idx][2]
           valign  = table_matrix[r_idx][d_idx][3]
           align   = table_matrix[r_idx][d_idx][4]
-          cell_width = sum(col_width[c_idx:(c_idx+colspan)])
-          td_latex = HTMLContents2TeX(d.contents, TableEnv = True)
-          
-          cell_latex = RenderCell(td_latex, cell_width, colspan, rowspan, nowrap, valign, align)
+          cell_width = SumWidth(col_width[c_idx:(c_idx+colspan)])
+          cell_width[1] += (2*(colspan-1))
+          cell_width[2] += (colspan-1)
+          skip_size  = 0
+          if needs_skip:
+            skip_size = row_skip[d_idx]
+          td_latex = row_td_latex[d_idx]
+          cell_latex = RenderCell(td_latex, cell_width, colspan, rowspan, nowrap, valign, align, skip_size)
           if row_latex == '':
-            row_latex = cell_latex
+            row_latex = ' ' + cell_latex
           else:
-            row_latex += ' & ' + cell_latex
+            row_latex += '\n& ' + cell_latex.strip()
           d_idx += 1
           c_idx += colspan
       table_latex += row_latex
@@ -349,7 +496,7 @@ def table_HTMLEntity2TeX(table_entity, TableEnv = False):
     table_latex += '\\end{longtable}'
   return table_latex 
 
-def RenderCell(tex_src, width, colspan=1, rowspan=1, nowrap=False, valign='middle', align='left'):
+def RenderCell(tex_src, width, colspan=1, rowspan=1, nowrap=False, valign='middle', align='left', skip=0):
   cell_latex=' '
   
   halign_tag=False
@@ -365,70 +512,54 @@ def RenderCell(tex_src, width, colspan=1, rowspan=1, nowrap=False, valign='middl
   multicolumn_tag=False
   if colspan > 1:
     multicolumn_tag=True
-  if valign != 'top':
-    multicolumn_tag=True
   if cell_wrapper and align != 'left':
     multicolumn_tag=True
   
+  vskip_in_cell=(valign != 'top') and (skip != 0)
+  
+  cell_latex=''
   if tex_src.strip():
-    cell_latex = tex_src.strip() + ' '
+    begin_cell = ''
+    end_cell = ''
     if tex_src.strip():
       if halign_tag:
         if align == 'center':
-          cell_latex = '{\\centering ' + cell_latex + '}'
+          begin_cell = '{\\centering '+begin_cell
+          end_cell   = end_cell+'}'
         elif align == 'right':
-          cell_latex = '{\\raggedleft ' + cell_latex + '}'
-    if cell_wrapper:
-      if not nowrap:
-        cell_latex = '\\Xcell{'+("%.2f" % width)+'em+2\\arrayrulewidth}{' + cell_latex + '}'
-      else:
-        # if valign == 'top':
-        #   cell_latex = '\\nowrapcell[t]{' + cell_latex + '}'
-        # elif valign == 'right':
-        #   cell_latex = '\\nowrapcell[b]{' + cell_latex + '}'
-        # else:
-        cell_align_nowrap = 'l'
-        if align == 'center':
-          cell_align_nowrap = 'c'
-        elif align == 'right':
-          cell_align_nowrap = 'r'
-        cell_valign_nowrap = 'c'
-        if valign == 'top':
-          cell_valign_nowrap = 't'
-        elif valign == 'bottom':
-          cell_valign_nowrap = 'b'
+          begin_cell = '{\\raggedleft '+begin_cell
+      
+      if cell_wrapper:
+        if not nowrap:
+          begin_cell = '\\nowrapcell{p{'+PrintWidth(width)+'}}{'+begin_cell
+          end_cell   = end_cell+'}'
         else:
-          cell_valign_nowrap = 'c'
-        cell_latex = '\\nowrapcell['+cell_valign_nowrap+']{'+cell_align_nowrap+'}{' + cell_latex + '}'
+          cell_align_nowrap = 'l'
+          if align == 'center':
+            cell_align_nowrap = 'c'
+          elif align == 'right':
+            cell_align_nowrap = 'r'
+          begin_cell = '\\nowrapcell{'+cell_align_nowrap+'}{' + begin_cell
+          end_cell   = end_cell + '}'
     
     if multicolumn_tag:
       column_def = 'l'
-      if valign == 'top':
-        if nowrap:
-          column_def = align[0]
-        else:
-          if align=='center':
-            column_def = 'C{' + ("%.2f" % width) + 'em}'
-          elif align=='right':
-            column_def = 'R{' + ("%.2f" % width) + 'em}'
-          else:
-            column_def = 'L{' + ("%.2f" % width) + 'em}'
-      elif valign == 'bottom':
-        if align=='center':
-          column_def = 'V{' + ("%.2f" % width) + 'em}'
-        elif align=='right':
-          column_def = 'B{' + ("%.2f" % width) + 'em}'
-        else:
-          column_def = 'b{' + ("%.2f" % width) + 'em}'
+      if nowrap:
+        column_def = align[0]
       else:
         if align=='center':
-          column_def = 'M{' + ("%.2f" % width) + 'em}'
+          column_def = 'C{' + PrintWidth(width)+ '}'
         elif align=='right':
-          column_def = 'K{' + ("%.2f" % width) + 'em}'
+          column_def = 'R{' + PrintWidth(width)+ '}'
         else:
-          column_def = 'm{' + ("%.2f" % width) + 'em}'
-      cell_latex = '\\multicolumn{' + str(colspan) + '}{' + column_def + '}{' + cell_latex + '}'
-  
+          column_def = 'L{' + PrintWidth(width)+ '}'
+      begin_cell = '\\multicolumn{' + str(colspan) + '}{' + column_def + '}{'+begin_cell
+      end_cell   = end_cell + '}'
+    
+    if vskip_in_cell:
+      begin_cell = begin_cell+'\\setlength{\\cellskip}{'+("%.2fex" % skip)+'-\\baselineskip}{\\vskip 0pt}{\\vskip \cellskip}'
+      end_cell   = ''+end_cell
+    cell_latex = begin_cell + tex_src.strip() + end_cell
   return cell_latex
 
 def ConvertHTMLElement(html_element, TableEnv=False):
