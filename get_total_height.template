@@ -1,10 +1,36 @@
-\documentclass{article}
+\documentclass{tufte-book}
+\usepackage{calc}
+
+\newdimen\lhTOP
+\newdimen\htALL
+
+\newif\ifoutput
+\newbox\tempbox
+\newbox\linebox
+
+\def\measure#1\par{
+  \setbox\tempbox\vbox{#1\par\eat}
+  \settoheight{\global\htALL}{\vbox{#1}}
+  \ifoutput\box\tempbox\fi
+}
+
+\def\eat{{
+  \setbox\linebox\lastbox
+  \ifvoid\linebox
+  \else
+  \settoheight{\global\lhTOP}{\vbox{\unhcopy\linebox}}
+    \unskip\unpenalty\unskip\unpenalty\unskip\unpenalty\unskip\eat
+    \ifoutput
+      \noindent\box\linebox\rlap{~\,~\,~\,~\the\lhTOP}
+    \fi
+  \fi
+}}
 
 \begin{document}
-\newsavebox\abox
-\hsize=$hsize
-
-\savebox\aBox{\vbox{\noindent $tex_to_measure }}
-\showthe\dimexpr\ht\box0+\dimexpr\dp\box0
-\showthe\dimexpr1ex
+$sethsize
+\setlength{\parindent}{0pt}
+\outputfalse
+\measure $tex_to_measure \par
+\showthe\dimexpr\htALL-\dimexpr\lhTOP
+\showthe\dimexpr\baselineskip
 \end{document}

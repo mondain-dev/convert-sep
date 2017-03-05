@@ -1,7 +1,7 @@
 %%% Based on the script by Paolo Brasolin: 
 %%% \url{http://tex.stackexchange.com/a/285774}
 
-\documentclass{article}
+\documentclass{tufte-book}
 \newbox\linebox
 \newbox\tempbox
 
@@ -39,7 +39,7 @@
   \ifdim\dwCUR>\dwMAX\global\dwMAX=\dwCUR\fi
   \ifdim\lwACT>\lwCURMAX\global\lwCURMAX=\lwACT\fi
   \ifvoid\linebox\else
-    \unskip\unpenalty\unskip\unpenalty\unskip\eat
+    \unskip\unpenalty\unskip\unpenalty\unskip\unpenalty\unskip\eat
     \ifoutput
       \noindent\box\linebox\rlap{~\,~\,~\,~\the\dwCUR}
     \fi
@@ -57,7 +57,8 @@
 \hsize=\lwMAX
 \hsALLMIN=\hsize
 \hyphenpenalty=100000
-\find \noindent $tex_to_measure \par
+\setlength{\parindent}{0pt}
+\find $tex_to_measure \par
 \showthe\dimexpr\lwALLMIN
 \showthe\dimexpr1em
 \end{document}

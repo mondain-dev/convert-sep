@@ -7,7 +7,7 @@
 \usepackage{tabularx}
 \usepackage{longtable}
 \usepackage[export]{adjustbox}
-
+\usepackage{calc}
 \usepackage{ifxetex}
 \ifxetex
   \newcommand{\textls}[2][5]{%

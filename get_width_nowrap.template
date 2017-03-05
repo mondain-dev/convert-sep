@@ -1,7 +1,7 @@
 %%% Based on the script by Paolo Brasolin: 
 %%% \url{http://tex.stackexchange.com/a/285774}
 
-\documentclass{article}
+\documentclass{tufte-book}
 \newbox\linebox
 \newbox\tempbox
 
@@ -21,7 +21,7 @@
   \settowidth{\lwCUR}{\unhcopy\linebox}
   \ifdim\lwCUR>\lwCURMAX\global\lwCURMAX=\lwCUR\fi
   \ifvoid\linebox\else
-    \unskip\unpenalty\unskip\unpenalty\unskip\eat
+    \unskip\unpenalty\unskip\unpenalty\unskip\unpenalty\unskip\eat
     \ifoutput
       \noindent\box\linebox\rlap{~\,~\,~\,~\the\lwCUR}
     \fi
@@ -30,7 +30,8 @@
 
 \begin{document}
 \outputfalse
-\measure \noindent $tex_to_measure \par
+\setlength{\parindent}{0pt}
+\measure $tex_to_measure \par
 \showthe\dimexpr\lwCURMAX
 \showthe\dimexpr1em
 \end{document}
