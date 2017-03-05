@@ -753,7 +753,16 @@ def main():
     helpConvertSEPHTML()
     sys.exit()
   
-  r  = requests.get(url)
+  try:
+    r  = requests.get(url)
+    r.raise_for_status()
+  except requests.exceptions.HTTPError as err:
+    print err
+    sys.exit(1)
+  except requests.exceptions.RequestException as e:
+    print e
+    sys.exit(1)
+  url = r.url
   
   soup = BeautifulSoup(r.text, "lxml")
   
