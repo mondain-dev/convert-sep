@@ -7,6 +7,12 @@ To generate [tufte-book](https://tufte-latex.github.io/tufte-latex/) style docum
 
 You may need to add the paths to the `PATH` environment variable, such that `inkscape` and `xelatex` can be called directly from your command-line.
 
+Python packages required are listed in `requirements.txt`, such that they can be installed using `pip`:
+```
+pip install -r requirements.txt
+```
+Various LaTeX packages are also needed in order to successfully compiling the generated `.tex` file.
+
 ## Usage
 ```
  python ConvertSEPHTML.py <URL to the entry> [<output.tex>]
