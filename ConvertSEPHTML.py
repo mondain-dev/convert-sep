@@ -41,7 +41,10 @@ def TeXWidth(tex_str, nowrap):
   get_width_script_file.close()
   
   FNULL = open(os.devnull, 'w')
-  call(['xelatex', '-interaction=batchmode', script_id], stdout=FNULL, stderr=subprocess.STDOUT)
+  try:
+    call(['xelatex', '-interaction=batchmode', script_id], stdout=FNULL, stderr=subprocess.STDOUT)
+  except OSError:
+    print 'xelatex not found.'
   f_log = open(os.path.join(DIR_TEMP, script_id+'.log'), "r")
   tex_output = []
   for line in f_log:
@@ -75,7 +78,10 @@ def TeXTotalHeight(tex_str, TotalWidth=['\\textwidth']):
   get_width_script_file.close()
   
   FNULL = open(os.devnull, 'w')
-  call(['xelatex', '-interaction=batchmode', script_id], stdout=FNULL, stderr=subprocess.STDOUT)
+  try:
+    call(['xelatex', '-interaction=batchmode', script_id], stdout=FNULL, stderr=subprocess.STDOUT)
+  except OSError:
+    print 'xelatex not found.'
   f_log = open(os.path.join(DIR_TEMP, script_id+'.log'), "r")
   tex_output = []
   for line in f_log:
@@ -747,11 +753,11 @@ def main():
   args = sys.argv[1:]
   if(len(args)>0):
     url = args[0]
-    if( len(args)>1):
+    if(len(args)>1):
       output=args[1]
   else:
     helpConvertSEPHTML()
-    sys.exit()
+    sys.exit(1)
   
   try:
     r  = requests.get(url)
@@ -781,6 +787,10 @@ def main():
                    json_obj['TeX']['Macros'][m] = unichr(int(re.sub(r'\\unicode{x(.*)}', r'\1', json_obj['TeX']['Macros'][m]), 16))
                  TeXMacros = '\n'.join([TeXMacros, ''.join(['\\providecommand{\\', m, '}{', json_obj['TeX']['Macros'][m], '}']), ''.join(['\\renewcommand{\\', m, '}{', json_obj['TeX']['Macros'][m], '}'])])
   
+  if not soup.select('#aueditable'):
+    print 'This page does not appear to be a valid SEP entry.'
+    sys.exit(1)
+  
   title = soup.select('#aueditable h1')[0].text
   author_info = filter(None, [s.strip() for s in soup.select('#article-copyright')[0].text.split('by\n')[1].split('\n')])
   author = author_info[0]
@@ -799,6 +809,7 @@ def main():
   main_text_TeX       = ConvertHTML(main_text)
   bibliography_TeX    = ConvertHTML(bibliography)
   acknowledgments_TeX = ''
+    
   if acknowledgments:
     if acknowledgments.children:
       for i in acknowledgments.children:
@@ -819,7 +830,10 @@ def main():
     if re.match('.*.svg', img):
       img_local_pdf = re.sub(r'(.*).svg', r'\1.pdf', img_local)
       img_pdf = re.sub(r'(.*).svg', r'\1.pdf', img)
-      call(["inkscape", '-D', '-z', ''.join(['--file=', img_local]), ''.join(['--export-pdf=', img_local_pdf])])
+      try:
+        call(["inkscape", '-D', '-z', ''.join(['--file=', img_local]), ''.join(['--export-pdf=', img_local_pdf])])
+      except OSError:
+        print 'inkscape not found. Please manually convert ' + img + 'into .pdf or other formats that can by included by \\includegraphics.'
       full_TeX = re.sub(''.join([r'\\includegraphics{', img, '}']), ''.join([r'\\includegraphics[max width=\\textwidth]{', img_pdf, '}']), full_TeX, flags=re.MULTILINE)
     else:
       full_TeX = re.sub(''.join([r'\\includegraphics{', img, '}']), ''.join([r'\\includegraphics[max width=\\textwidth]{', img, '}']), full_TeX, flags=re.MULTILINE)
