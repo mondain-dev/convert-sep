@@ -1,3 +1,8 @@
+%%% Based on the script by Paolo Brasolin: 
+%%% \url{http://tex.stackexchange.com/a/285774}
+%%% See V. Eijkhout, TeX by Topic, A TeXnician's Reference, 5.9.6; 
+%%% V. Eijkhout, ``Unusual paragraph shapes,'' TUGboat 11: 51--53.
+
 \documentclass{tufte-book}
 \usepackage{calc}
 
