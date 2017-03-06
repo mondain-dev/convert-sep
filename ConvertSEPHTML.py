@@ -23,6 +23,25 @@ def ConvertMathJaX2TeX(mathjax_str):
 def CommentTeX(tex_src):
   return '\n'.join(['% ' + l for l in tex_src.strip().split('\n')])
 
+def text2TeX(text):
+    # http://stackoverflow.com/a/2400577
+    # http://stackoverflow.com/a/25875504
+    conv = {
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\^{}',
+        '\\\\': r'\textbackslash{}',
+        '<': r'{\textless}',
+        '>': r'{\textgreater}',
+    }
+    return re.sub('|'.join([re.escape(unicode(key)) for key in conv.keys()]), lambda x: conv[x.group()], text)
+
 def TeXWidth(tex_str, nowrap):
   script_template_fname = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'get_width.template')
   if nowrap:
@@ -798,7 +817,7 @@ def main():
   title = soup.select('#aueditable h1')[0].text
   author_info = filter(None, [s.strip() for s in soup.select('#article-copyright')[0].text.split('by\n')[1].split('\n')])
   author = author_info[0]
-  copyright_info = pypandoc.convert(' '.join(soup.select('#article-copyright')[0].text.split()), 'tex', format='markdown')
+  copyright_info = text2TeX(' '.join(soup.select('#article-copyright')[0].text.split()))
   pubhistory_info = soup.select('#pubinfo')[0].text
   preamble = soup.select('#aueditable #preamble')[0]
   main_text = soup.select('#aueditable #main-text')[0]
