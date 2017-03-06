@@ -250,9 +250,13 @@ def HTMLContents2TeX(contents, TableEnv=False, TotalWidth = ['\\textwidth']):
         if e.name in ['h2', 'h3', 'h4', 'p', 'blockquote', 'ul', 'ol', 'div', 'table']:
           if e_html.strip():
             if not ignore:
-              latex_str += pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
+              latex_str += pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')     
+              if e.name == 'p':
+                latex_str += '\n'
             else:
               latex_str += CommentTeX(pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash'))
+              if e.name == 'p':
+                latex_str += '\n'
           else:
             if not ignore:
               latex_str += '\n'
@@ -300,7 +304,7 @@ def paragraph_HTMLEntity2TeX(html_entity):
   return paragraph_TeX
 
 def blockquote_HTMLEntity2TeX(html_entity):
-  return '\n'.join(['\\begin{quote}', HTMLContents2TeX(html_entity.contents), '\\end{quote}'])
+  return '\n'.join(['\\begin{quote}', HTMLContents2TeX(html_entity.contents).strip(), '\\end{quote}'])
 
 def ul_HTMLEntity2TeX(html_entity):
   li_contents_list = [l.contents for l in html_entity.find_all('li')]
@@ -794,7 +798,7 @@ def main():
   title = soup.select('#aueditable h1')[0].text
   author_info = filter(None, [s.strip() for s in soup.select('#article-copyright')[0].text.split('by\n')[1].split('\n')])
   author = author_info[0]
-  copyright_info = ' '.join(soup.select('#article-copyright')[0].text.split())
+  copyright_info = pypandoc.convert(' '.join(soup.select('#article-copyright')[0].text.split()), 'tex', format='markdown')
   pubhistory_info = soup.select('#pubinfo')[0].text
   preamble = soup.select('#aueditable #preamble')[0]
   main_text = soup.select('#aueditable #main-text')[0]
