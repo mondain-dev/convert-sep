@@ -656,7 +656,7 @@ def ConvertHTMLElement(html_element, TableEnv=False, TotalWidth = ['\\textwidth'
       if 'figure' in html_element['class']:
         return '\n'.join(['\\begin{figure}\\centering', paragraph_HTMLEntity2TeX(html_element).strip(), '\\end{figure}'])
       if 'indent' in html_element['class']:
-        return '\n'.join(['\\begin{adjustwidth}{1em}{1em}', paragraph_HTMLEntity2TeX(html_element).strip(), '\\end{adjustwidth}'])
+        return '\n'.join(['\\begin{sepindent}', paragraph_HTMLEntity2TeX(html_element).strip(), '\\end{sepindent}'])
       if 'smaller' in html_element['class']:
         return '\n'.join(['{\small ', paragraph_HTMLEntity2TeX(html_element).strip(), '}'])
     return paragraph_HTMLEntity2TeX(html_element) 
@@ -763,7 +763,7 @@ def ProcessNotes(src_tex, base_url):
     note_text = ''
     if len(n) > 5:
       note_text = '\n'.join([ConvertHTMLElement(e) for e in n[5]])
-      note_text = ''.join(['\\setlength{\\tempparskip}{\\parskip}\\setlength{\\tempparindent}{\\parindent}\\sidenote[][]{', note_text, '}\\setlength{\\parindent}{\\tempparindent}\\setlength{\\parskip}{\\tempparskip}'])
+      note_text = '\\sepsidenote[]{' + note_text.strip() + '}'
     note_superscript = n[0]
     src_tex = src_tex.replace(note_superscript, note_text)
   

@@ -1,6 +1,7 @@
 \documentclass[twoside]{tufte-book}
 \usepackage{graphicx}
 \usepackage{enumerate}
+\usepackage[shortlabels]{enumitem}
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{changepage}
@@ -9,6 +10,8 @@
 \usepackage[export]{adjustbox}
 \usepackage{calc}
 \usepackage{ifxetex}
+
+%% tufte
 \ifxetex
   \newcommand{\textls}[2][5]{%
     \begingroup\addfontfeatures{LetterSpace=#1}#2\endgroup
@@ -20,28 +23,43 @@
   \renewcommand{\textsc}[1]{\smallcapsspacing{\textsmallcaps{#1}}}
   \usepackage{fontspec}
 \fi
+
+%% tufte: sidenote
+\newskip\origparskip
+\newdimen\origparindent
 \makeatletter
-\newcommand{\chapterauthor}[1]{%
-  {\parindent0pt\vspace*{-25pt}%
-  \linespread{1.1}\large\scshape#1%
-  \par\nobreak\vspace*{35pt}}
-  \@afterheading%
-}
+\newif\if@in@sidenote@
+\newcommand{\sepsidenote}[2][]
+{\setlength{\origparskip}{\parskip}\setlength{\origparindent}{\parindent}\@in@sidenote@true\sidenote[][#1]{#2}\@in@sidenote@false\setlength{\parindent}{\origparindent}\setlength{\parskip}{\origparskip}}
+\let\origquote\quote
+\def\quote{\origquote\if@in@sidenote@\footnotesize\fi}
 \makeatother
 
+%% table
+%% table: column definitions
 \newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash}p{#1}}
 \newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash}p{#1}}
 \newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash}p{#1}}
 
+%% table: cells
 \newcommand{\nowrapcell}[3][t]{%
  \begin{tabular}[#1]{@{}#2@{}}#3\end{tabular}}
-% \newcommand{\Xcell}[2]{%
-%  \begin{tabularx}{#1}{@{}X@{}}#2\end{tabularx}}
+\newskip\cellskip
 
+%% MathJaX
 \newcommand{\lt}{<}
 \newcommand{\gt}{>}
-
 $MathJaxMacros
+
+%% SEP enironments
+\newenvironment{sepindent}{
+\begin{adjustwidth}{2em}{2em}
+\setlist{nosep}
+}
+{
+\setlist{}
+\end{adjustwidth}
+}
 
 \title{$title}
 \author{$author}
@@ -60,6 +78,3 @@ $copyright
 
 % \par The script used to generate this file can be found at \url{https://github.com/mondain-dev/ConvertSEP/}
 \cleardoublepage
-\newskip\tempparskip
-\newskip\cellskip
-\newlength\tempparindent
