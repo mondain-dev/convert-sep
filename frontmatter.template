@@ -72,7 +72,7 @@ $MathJaxMacros
 \setlength{\parskip}{\baselineskip}
 $copyright
 
-\par This is an article from \emph{Stanford Encyclopedia of Philosopy}, ed.~Edward N.~Zalta. URL: \url{$url}
+\par This is an article from \emph{Stanford Encyclopedia of Philosopy}, ed.\@ Edward N. Zalta. URL: \url{$url}
 
 \par $pubhistory
 
