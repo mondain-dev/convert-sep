@@ -9,6 +9,7 @@
 \usepackage{longtable}
 \usepackage[export]{adjustbox}
 \usepackage{calc}
+\usepackage{uri}
 \usepackage{ifxetex}
 
 %% tufte
@@ -55,8 +56,11 @@ $MathJaxMacros
 \newenvironment{sepindent}{
 \begin{adjustwidth}{2em}{2em}
 \setlist{nosep}
+\setlength{\origparindent}{\parindent}
+\setlength{\parindent}{0pt}
 }
 {
+\setlength{\parindent}{\origparindent}
 \setlist{}
 \end{adjustwidth}
 }
@@ -66,6 +70,7 @@ $MathJaxMacros
 \begin{document}
 \maketitle
 \newpage
+\begin{fullwidth}
 ~\vfill
 \thispagestyle{empty}
 \setlength{\parindent}{0pt}
@@ -77,4 +82,5 @@ $copyright
 \par $pubhistory
 
 % \par The script used to generate this file can be found at \url{https://github.com/mondain-dev/ConvertSEP/}
+\end{fullwidth}
 \cleardoublepage

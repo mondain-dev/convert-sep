@@ -320,6 +320,17 @@ def paragraph_HTMLEntity2TeX(html_entity):
     paragraph_TeX = re.sub(r'\\textbackslash{}\(\\textbackslash\{\}ref\\{(.*)\\}\\textbackslash{}\)', r'\\ref{\1}', paragraph_TeX)
   if re.search(r'\(\\textbackslash{}\((.*)\\textbackslash{}\)\)', paragraph_TeX):
     paragraph_TeX = re.sub(r'\(\\textbackslash{}\((.*)\\textbackslash{}\)\)', (lambda x: ''.join(['($', re.sub(r'\\textbackslash{}', r'\\', x.group(1)), '$)'])), paragraph_TeX)
+  if html_entity.has_attr('class'):
+    if 'smaller' in html_entity['class']:
+      paragraph_TeX = '{\small ' + paragraph_TeX + '}\n'
+    if 'smallest' in html_entity['class']:
+      paragraph_TeX = '{\small ' + paragraph_TeX + '}\n'
+    if 'bold' in html_entity['class']:
+      paragraph_TeX = '\\textbf{' + paragraph_TeX.strip() + '}\n'
+    if 'figure' in html_entity['class']:
+      paragraph_TeX = '\\begin{figure}\\centering\n' + paragraph_TeX.strip() + '\n\\end{figure}\n'
+    if 'indent' in html_entity['class']:
+      paragraph_TeX = '\\begin{sepindent}' + paragraph_TeX.strip() + '\\end{sepindent}\n'
   return paragraph_TeX
 
 def blockquote_HTMLEntity2TeX(html_entity):
@@ -649,17 +660,8 @@ def ConvertHTMLElement(html_element, TableEnv=False, TotalWidth = ['\\textwidth'
   tag = html_element.name
   if tag == 'h2' or tag == 'h3' or tag == 'h4':
     return heading_HTMLEntity2TeX(html_element)
-  if tag == 'p' or tag == 'span':
+  if tag == 'p' or tag == 'span' or tag == 'div':
     return paragraph_HTMLEntity2TeX(html_element)
-  if tag == 'div':
-    if html_element.has_attr('class'):
-      if 'figure' in html_element['class']:
-        return '\n'.join(['\\begin{figure}\\centering', paragraph_HTMLEntity2TeX(html_element).strip(), '\\end{figure}'])
-      if 'indent' in html_element['class']:
-        return '\n'.join(['\\begin{sepindent}', paragraph_HTMLEntity2TeX(html_element).strip(), '\\end{sepindent}'])
-      if 'smaller' in html_element['class']:
-        return '\n'.join(['{\small ', paragraph_HTMLEntity2TeX(html_element).strip(), '}'])
-    return paragraph_HTMLEntity2TeX(html_element) 
   if tag == 'blockquote':
     return blockquote_HTMLEntity2TeX(html_element)
   if tag == 'ul':
@@ -713,8 +715,6 @@ def ConvertHTML(entry_html_entity):
                 entry_TeX = re.sub('\n\n\Z', '\n', entry_TeX, flags=re.MULTILINE) + CommentTeX(str(i).strip())
   return entry_TeX
 
-
-
 def OutputTeX(title, author, preamble='', main_text='', bibliography='', acknowledgments='', macros='', pubhistory='', copyright='', url=''):
   frontmatter_template_fname = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'frontmatter.template')
   f = open(frontmatter_template_fname, 'r')
@@ -767,8 +767,14 @@ def ProcessNotes(src_tex, base_url):
     note_superscript = n[0]
     src_tex = src_tex.replace(note_superscript, note_text)
   
+  return src_tex
+
+def ProcessMathJaX(src_tex):
   return re.sub(r'\\\[.*?\\\]', lambda x: ConvertMathJaX2TeX(x.group(0)), src_tex, flags=re.MULTILINE|re.DOTALL)
-    
+
+def ProcessDOI(src_tex):
+  return re.sub(r'(?:(?:doi:?\s*)|(?:DOI:?\s*))?(10[.][0-9]{4,}(?:[.][0-9]+)*/(?:(?!["&\'<>])\S)+)\b', \
+         lambda x: '\\doi{' + pypandoc.convert(x.group(1), 'plain', 'latex').strip() + '}', src_tex, flags=re.MULTILINE)
 
 def main():
   url=''
@@ -815,12 +821,19 @@ def main():
     sys.exit(1)
   
   title = soup.select('#aueditable h1')[0].text
+  
   author_info = filter(None, [s.strip() for s in soup.select('#article-copyright')[0].text.split('by\n')[1].split('\n')])
   author = author_info[0]
+  
   copyright_info = text2TeX(' '.join(soup.select('#article-copyright')[0].text.split()))
+  copyright_info = re.sub(r'\{\\textless\}(.*?)\{\\textgreater\}', r'{\\textless}\\nolinkurl{\1}{\\textgreater}', copyright_info)
+  
   pubhistory_info = soup.select('#pubinfo')[0].text
+  
   preamble = soup.select('#aueditable #preamble')[0]
+  
   main_text = soup.select('#aueditable #main-text')[0]
+  
   bibliography = None
   if soup.select('#aueditable #bibliography'):
     bibliography = soup.select('#aueditable #bibliography')[0]
@@ -844,6 +857,8 @@ def main():
   
   full_TeX   = OutputTeX(title, author, preamble_TeX, main_text_TeX, bibliography_TeX, acknowledgments_TeX, TeXMacros, pubhistory_info, copyright_info, url)
   full_TeX   = ProcessNotes(full_TeX, url)
+  full_TeX   = ProcessMathJaX(full_TeX)
+  full_TeX   = ProcessDOI(full_TeX)
   
   for img in re.findall(r'\\includegraphics{(.*?)}', full_TeX, flags=re.MULTILINE):
     img_local = os.path.join(os.path.dirname(os.path.abspath(output)), img)
