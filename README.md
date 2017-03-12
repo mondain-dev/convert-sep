@@ -25,7 +25,11 @@ or
 ```
 python ConvertSEPHTML.py  https://plato.stanford.edu/entries/comte/
 ```
-which will save the tex output to `output.tex`. Manual adjustment may be required, e.g. <*offset*> argument of `\sidenote`. XeLaTeX can then be used to compile the output:
+which will save the tex output to `output.tex` if no file name is supplied. 
+
+Manual adjustment may be required. For example, in the command `\sepsidenote[<offset>]{note texts}` that wraps `tufte`'s `\sidenote`, the `<offset>` option passed on to `\sidenote` may need to be adjusted manually. Other features in SEP entries currently unsupported can be found (and reported) at [project's issues page](https://github.com/mondain-dev/ConvertSEP/issues). 
+
+XeLaTeX can then be used to compile the output:
 ```
 xelatex comte.tex
 xelatex comte.tex # second run to generate the TOC
