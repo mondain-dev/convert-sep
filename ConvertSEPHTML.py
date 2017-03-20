@@ -622,6 +622,7 @@ def RenderCell(tex_src, width_str, colspan=1, rowspan=1, nowrap=False, valign='m
           end_cell   = end_cell+'}'
         elif align == 'right':
           begin_cell = '{\\raggedleft '+begin_cell
+          end_cell   = end_cell+'}'
       
       if cell_wrapper:
         if not nowrap:
