@@ -4,6 +4,17 @@
 %%% V. Eijkhout, ``Unusual paragraph shapes,'' TUGboat 11: 51--53.
 
 \documentclass{tufte-book}
+\usepackage{fontspec}
+\usepackage[Latin,Greek,Mathematics,Symbols]{ucharclasses}
+% Greek fonts
+\newfontfamily\greekfont[ItalicFont={Latin Modern Roman 10 Italic}]{Latin Modern Math}
+\setTransitionsForGreek{\greekfont}{}
+
+% Math fonts
+\newfontfamily\mathsfont[ItalicFont={Latin Modern Roman 10 Italic}]{Latin Modern Math}
+\setTransitionsForSymbols{\mathsfont}{}
+\setTransitionsForMathematics{\mathsfont}{}
+
 \newbox\linebox
 \newbox\tempbox
 
