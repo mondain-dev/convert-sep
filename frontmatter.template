@@ -12,6 +12,18 @@
 \usepackage{uri}
 \usepackage{ifxetex}
 
+%% fonts
+\usepackage{fontspec}
+\usepackage[Latin,Greek,Mathematics,Symbols]{ucharclasses}
+% Greek fonts
+\newfontfamily\greekfont[ItalicFont={Latin Modern Roman 10 Italic}]{Latin Modern Math}
+\setTransitionsForGreek{\greekfont}{}
+
+% Math fonts
+\newfontfamily\mathsfont[ItalicFont={Latin Modern Roman 10 Italic}]{Latin Modern Math}
+\setTransitionsForSymbols{\mathsfont}{}
+\setTransitionsForMathematics{\mathsfont}{}
+
 %% tufte
 \ifxetex
   \newcommand{\textls}[2][5]{%
