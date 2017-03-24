@@ -1,4 +1,5 @@
 lxml
+python-dateutil
 demjson
 pypandoc
 requests

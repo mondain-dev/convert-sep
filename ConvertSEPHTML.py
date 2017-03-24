@@ -1,6 +1,7 @@
 import sys
 import os
 import os.path
+import datetime
 import re
 import requests
 import pypandoc
@@ -10,6 +11,7 @@ import shutil
 import uuid
 import subprocess
 
+from dateutil.tz import tzlocal
 from subprocess import call
 from string import Template
 from bs4 import BeautifulSoup, Comment
@@ -722,7 +724,9 @@ def OutputTeX(title, author, preamble='', main_text='', bibliography='', acknowl
   frontmatter_template=Template(f.read())
   f.close()
   
-  src_tex = frontmatter_template.substitute(title=title, author=author, copyright=copyright, pubhistory=pubhistory, url=url, MathJaxMacros=macros)
+  src_tex = frontmatter_template.substitute(title=title, author=author, copyright=copyright, \
+  											pubhistory=pubhistory, url=url, MathJaxMacros=macros, \
+  											time_accessed=datetime.datetime.now().strftime('%c') + ', ' + datetime.datetime.now(tzlocal()).tzname())
   src_tex = '\n'.join([src_tex, preamble, '\n\\tableofcontents\n\n\\setcounter{secnumdepth}{2}',  main_text, bibliography, acknowledgments, '\\end{document}'])
   return src_tex
 
