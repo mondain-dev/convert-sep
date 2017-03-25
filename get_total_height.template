@@ -11,11 +11,12 @@
 % Greek fonts
 \newfontfamily\greekfont[ItalicFont={Latin Modern Roman 10 Italic}, 
                          ItalicFeatures={FakeSlant=0}, 
-                         FakeSlant=0.15]{Latin Modern Math}
+                         FakeSlant=0.15,
+                         Ligatures=TeX]{Latin Modern Math}
 \setTransitionsForGreek{\greekfont}{}
 
 % Math fonts
-\newfontfamily\mathsfont[ItalicFont={Latin Modern Roman 10 Italic}]{Latin Modern Math}
+\newfontfamily\mathsfont[ItalicFont={Latin Modern Roman 10 Italic}, Ligatures=TeX]{Latin Modern Math}
 \setTransitionsForSymbols{\mathsfont}{}
 \setTransitionsForMathematics{\mathsfont}{}
 
