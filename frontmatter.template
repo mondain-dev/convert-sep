@@ -16,7 +16,9 @@
 \usepackage{fontspec}
 \usepackage[Latin,Greek,Mathematics,Symbols]{ucharclasses}
 % Greek fonts
-\newfontfamily\greekfont[ItalicFont={Latin Modern Roman 10 Italic}]{Latin Modern Math}
+\newfontfamily\greekfont[ItalicFont={Latin Modern Roman 10 Italic}, 
+                         ItalicFeatures={FakeSlant=0}, 
+                         FakeSlant=0.15]{Latin Modern Math}
 \setTransitionsForGreek{\greekfont}{}
 
 % Math fonts
@@ -34,7 +36,6 @@
   \renewcommand{\allcaps}[1]{\textls[15]{\MakeTextUppercase{#1}}}
   \renewcommand{\smallcaps}[1]{\smallcapsspacing{\scshape\MakeTextLowercase{#1}}}
   \renewcommand{\textsc}[1]{\smallcapsspacing{\textsmallcaps{#1}}}
-  \usepackage{fontspec}
 \fi
 
 %% tufte: sidenote

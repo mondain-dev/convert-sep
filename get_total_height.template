@@ -9,7 +9,9 @@
 \usepackage{fontspec}
 \usepackage[Latin,Greek,Mathematics,Symbols]{ucharclasses}
 % Greek fonts
-\newfontfamily\greekfont[ItalicFont={Latin Modern Roman 10 Italic}]{Latin Modern Math}
+\newfontfamily\greekfont[ItalicFont={Latin Modern Roman 10 Italic}, 
+                         ItalicFeatures={FakeSlant=0}, 
+                         FakeSlant=0.15]{Latin Modern Math}
 \setTransitionsForGreek{\greekfont}{}
 
 % Math fonts
