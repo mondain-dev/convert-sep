@@ -761,9 +761,11 @@ def ProcessNotes(src_tex, base_url):
       for tag in e.find_all('a'):
         if tag.has_attr('name'):
           tag.replaceWith('')
+          break
         elif tag.has_attr('href'):
           if re.match(r'index\.html?#.*', tag['href']):
             tag.replaceWith('')
+            break
     
     note_text = ''
     if len(n) > 5:
