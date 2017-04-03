@@ -214,16 +214,16 @@ def HTMLEntityWidth(html_entity, nowrap=False):
 
 def PrintWidth(width):
   list_width_str = []
-  str_em=("%.3fem" % width[0]) # diff between article & tufte
-  if str_em != "0.000em":
+  str_em=("%.3gem" % width[0]) # diff between article & tufte
+  if str_em != "0em":
     list_width_str.append(str_em)
   
-  str_tcs=("%.3f\\tabcolsep" % width[1])
-  if str_tcs != '0.000\\tabcolsep':
+  str_tcs=("%.3g\\tabcolsep" % width[1])
+  if str_tcs != '0\\tabcolsep':
     list_width_str.append(str_tcs)
   
-  str_arw=("%.3f\\arrayrulewidth" % width[2])
-  if str_arw != "0.000\\arrayrulewidth":
+  str_arw=("%.3g\\arrayrulewidth" % width[2])
+  if str_arw != "0\\arrayrulewidth":
     list_width_str.append(str_arw)
   
   if list_width_str:
@@ -238,10 +238,9 @@ def HTMLContents2TeX(contents, TableEnv=False, TotalWidth = ['\\textwidth']):
   if contents:
     e_html = ''
     for e in contents:
-      if isinstance(e, (str, unicode)):
+      if isinstance(e, Comment):
         if unicode(e) == 'pdf exclude begin':
           ignore=True
-          # print 'HTMLContents2TeX: contents: str: pdf exclude begin'
           # clear e_html
           if e_html.strip():
             latex_str += pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash')
@@ -253,7 +252,6 @@ def HTMLContents2TeX(contents, TableEnv=False, TotalWidth = ['\\textwidth']):
           e_html = ''
         elif unicode(e) == 'pdf exclude end':
           ignore=False
-          # print 'HTMLContents2TeX: contents: str: pdf exclude end'
           # clear e_html
           if e_html.strip():
             latex_str += CommentTeX(pypandoc.convert(e_html, 'tex', format='html+tex_math_single_backslash'))
@@ -264,9 +262,6 @@ def HTMLContents2TeX(contents, TableEnv=False, TotalWidth = ['\\textwidth']):
         elif re.match(r'pdf include.*pdf include', unicode(e), flags=re.MULTILINE|re.DOTALL):
           e_contents = BeautifulSoup(re.sub(r'pdf include(.*)pdf include', r'\1',  unicode(e), flags=re.MULTILINE|re.DOTALL).strip(), 'lxml').html.body.contents
           latex_str += HTMLContents2TeX(e_contents)
-          # print 'HTMLContents2TeX: contents: str: pdf include'
-        else:
-          e_html += unicode(e)
       elif hasattr(e, 'name'):
         if e.name in ['h2', 'h3', 'h4', 'p', 'blockquote', 'ul', 'ol', 'div', 'table']:
           if e_html.strip():
@@ -681,7 +676,21 @@ def ConvertHTML(entry_html_entity):
   if entry_html_entity:
     if entry_html_entity.children:
       for i in entry_html_entity.children:
-        if i.name:
+        if isinstance(i, Comment):
+          if unicode(i) == 'pdf exclude begin':
+            ignore=True
+            entry_TeX += '% '
+            entry_TeX += unicode(i)
+            entry_TeX += '\n'
+          elif unicode(i) == 'pdf exclude end':
+            entry_TeX += '\n% '
+            entry_TeX += unicode(i)
+            entry_TeX += '\n'
+            ignore=False
+          elif re.match(r'pdf include.*pdf include', unicode(i), flags=re.MULTILINE|re.DOTALL):
+            i_contents = BeautifulSoup(re.sub(r'pdf include(.*)pdf include', r'\1',  unicode(i), flags=re.MULTILINE|re.DOTALL).strip(), 'lxml').html.body.contents
+            entry_TeX += HTMLContents2TeX(i_contents)
+        elif i.name:
           if not ignore:
             entry_TeX += '\n'
             entry_TeX += ConvertHTMLElement(i).strip()
@@ -693,29 +702,12 @@ def ConvertHTML(entry_html_entity):
             if i.name == 'p':
               entry_TeX += '% \n'
         else:
-          if str(i) == 'pdf exclude begin':
-            ignore=True
-            # print 'ConvertHTML: pdf exclude begin'
-            entry_TeX += '% '
-            entry_TeX += str(i)
-            entry_TeX += '\n'
-          elif str(i) == 'pdf exclude end':
-            entry_TeX += '\n% '
-            entry_TeX += str(i)
-            entry_TeX += '\n'
-            ignore=False
-            # print 'ConvertHTML: pdf exclude end'
-          elif re.match(r'pdf include.*pdf include', unicode(i), flags=re.MULTILINE|re.DOTALL):
-            i_contents = BeautifulSoup(re.sub(r'pdf include(.*)pdf include', r'\1',  unicode(i), flags=re.MULTILINE|re.DOTALL).strip(), 'lxml').html.body.contents
-            entry_TeX += HTMLContents2TeX(i_contents)
-            # print 'ConvertHTML: pdf include'
+          if not ignore:
+            if re.match(r'\\\[.*\\\]', unicode(i).strip(), flags=re.MULTILINE|re.DOTALL):
+              entry_TeX = re.sub('\n\n\Z', '\n', entry_TeX, flags=re.MULTILINE) + unicode(i).strip()
           else:
-            if not ignore:
-              if re.match(r'\\\[.*\\\]', str(i).strip(), flags=re.MULTILINE|re.DOTALL):
-                entry_TeX = re.sub('\n\n\Z', '\n', entry_TeX, flags=re.MULTILINE) + str(i).strip()
-            else:
-              if re.match(r'\\\[.*\\\]', str(i).strip(), flags=re.MULTILINE|re.DOTALL):
-                entry_TeX = re.sub('\n\n\Z', '\n', entry_TeX, flags=re.MULTILINE) + CommentTeX(str(i).strip())
+            if re.match(r'\\\[.*\\\]', unicode(i).strip(), flags=re.MULTILINE|re.DOTALL):
+              entry_TeX = re.sub('\n\n\Z', '\n', entry_TeX, flags=re.MULTILINE) + CommentTeX(unicode(i).strip())
   return entry_TeX
 
 def OutputTeX(title, author, preamble='', main_text='', bibliography='', acknowledgments='', macros='', pubhistory='', copyright='', url=''):
