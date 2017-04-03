@@ -775,6 +775,9 @@ def ProcessDOI(src_tex):
   return re.sub(r'(?:(?:doi:?\s*)|(?:DOI:?\s*))?(10[.][0-9]{4,}(?:[.][0-9]+)*/(?:(?!["&\'<>])\S)+)\b', \
          lambda x: '\\doi{' + pypandoc.convert(x.group(1), 'plain', 'latex').strip() + '}', src_tex, flags=re.MULTILINE)
 
+def ProcessURL(src_tex, url_base):
+  return re.sub(r'\\href\{(.*?)\}\{(.*?)\}', lambda x: '\\href{' + urljoin(url_base, x.group(1))+ '}{' + x.group(2) + '}', src_tex, flags=re.DOTALL)
+
 def main():
   url=''
   output='output.tex'
@@ -857,6 +860,7 @@ def main():
   full_TeX   = OutputTeX(title, author, preamble_TeX, main_text_TeX, bibliography_TeX, acknowledgments_TeX, TeXMacros, pubhistory_info, copyright_info, url)
   full_TeX   = ProcessNotes(full_TeX, url)
   full_TeX   = ProcessMathJaX(full_TeX)
+  full_TeX   = ProcessURL(full_TeX, url)
   full_TeX   = ProcessDOI(full_TeX)
   
   for img in re.findall(r'\\includegraphics{(.*?)}', full_TeX, flags=re.MULTILINE):
