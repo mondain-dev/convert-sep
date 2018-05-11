@@ -11,6 +11,7 @@
 \usepackage{calc}
 \usepackage{uri}
 \usepackage{ifxetex}
+\usepackage{marginfix}
 
 %% fonts
 \usepackage{fontspec}
